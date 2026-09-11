@@ -92,7 +92,7 @@ const barrier = (n: number) => {
 describe.skipIf(!canRun)("double counting, against the database", () => {
   const issuer = () => issuerFromSeed("9".repeat(64));
   const issueCredit = makeIssueCredit(dbStore(), issuer);
-  const input = { matchId: "mat_race", evidenceId: "evi_race", verification: ACCEPTED };
+  const input = { matchId: "mat_race", evidenceId: "evi_race" };
 
   beforeEach(async () => {
     const d = db();
@@ -101,6 +101,21 @@ describe.skipIf(!canRun)("double counting, against the database", () => {
     await d.delete(schema.verifications);
     await d.delete(schema.evidence);
     await d.delete(schema.matches);
+    await d.delete(schema.residueLots);
+    /* A credit is held by the producer of the lot behind the match, so the lot
+       has to exist: no lot, no holder, no credit. */
+    await d.insert(schema.residueLots).values({
+      lotId: MATCH.lotId,
+      producerId: "prod_race",
+      lat: 30.5,
+      lon: 76.0,
+      district: "Test",
+      feedstock: "paddy_straw",
+      tonnes: MATCH.assignedTonnes,
+      availableFrom: new Date(MATCH.decidedAt),
+      sourceDetectionId: null,
+      status: "matched",
+    });
     await d.insert(schema.matches).values({
       ...MATCH,
       decidedAt: new Date(MATCH.decidedAt),
@@ -178,6 +193,26 @@ describe.skipIf(!canRun)("double counting, against the database", () => {
 
     expect(await db().select().from(schema.credits)).toHaveLength(1);
   });
+
+  /* A credit is held by the producer of the lot behind the match. */
+  it("sets holder to the producer of the lot behind the match", async () => {
+    const { credit } = await issueCredit(
+      { matchId: "mat_race", evidenceId: "evi_race" },
+      { taskId: "task_holder", contextId: "c", progress: () => {} },
+    );
+    expect(credit.holder).toBe("prod_race");
+  });
+
+  it("refuses when the lot behind the match is gone - no holder, no credit", async () => {
+    await db().delete(schema.residueLots);
+    await expect(
+      issueCredit(
+        { matchId: "mat_race", evidenceId: "evi_race" },
+        { taskId: "task_nolot", contextId: "c", progress: () => {} },
+      ),
+    ).rejects.toThrow(/no holder/i);
+  });
+
 });
 
 /* ------------------------------------------------------------------ *
