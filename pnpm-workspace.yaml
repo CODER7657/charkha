@@ -3,10 +3,18 @@ packages:
   - "agents/*"
   - "apps/*"
 
-# pnpm 11 blocks postinstall scripts unless a package is listed here. These
-# three genuinely need theirs: esbuild and onnxruntime-node fetch a native
-# binary, protobufjs generates code. Without this the install errors out.
+# pnpm 11 blocks dependency build scripts unless they are listed here, and by
+# default turns any ignored build into a hard install error. These three
+# genuinely need theirs: esbuild and onnxruntime-node fetch a native binary,
+# protobufjs generates code.
+#
+# NOTE: this belongs here, not in package.json. pnpm 11 no longer reads the
+# "pnpm" key in package.json at all.
 onlyBuiltDependencies:
   - esbuild
   - onnxruntime-node
   - protobufjs
+
+# Anything not on the list above is skipped with a warning rather than failing
+# the whole install. We would rather find out at runtime than lose the build.
+strictDepBuilds: false
