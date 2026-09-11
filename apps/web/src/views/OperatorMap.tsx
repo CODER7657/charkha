@@ -179,7 +179,10 @@ export const OperatorMap = () => {
   const totals = useMemo(
     () => ({
       lots: lots.length,
-      tonnes: lots.reduce((sum, l) => sum + l.tonnes, 0),
+      // Only what is still listed. Counting matched lots here would keep
+      // claiming tonnes as available at the same moment the map shows them
+      // already routed to a unit.
+      tonnes: lots.reduce((sum, l) => (l.status === "listed" ? sum + l.tonnes : sum), 0),
       matched: matches.length,
       debit: matches.reduce((sum, m) => sum + m.transportKgCo2e, 0),
     }),

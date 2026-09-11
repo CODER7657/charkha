@@ -160,6 +160,59 @@ describe("what must be refused", () => {
   });
 });
 
+/* Capacity is per DAY. A second round in the same day must see what the first
+   one already committed, or it hands the unit its full capacity again. */
+describe("capacity already committed today", () => {
+  it("subtracts earlier rounds from the capacity available now", () => {
+    const args = { lots: [lot({ tonnes: 30 })], units: [unit({ capacityTonnesPerDay: 45 })], maxRadiusKm: 60 };
+
+    const fresh = assign(args);
+    expect(fresh.assignments).toHaveLength(1);
+    expect(fresh.remainingCapacity["unit_ldh"]).toBe(15);
+
+    // Same unit, but 30 t of today's 45 t is already spoken for.
+    const second = assign({ ...args, committedTonnes: { unit_ldh: 30 } });
+    expect(second.assignments).toHaveLength(0);
+    expect(second.unmatched[0]?.reason).toContain("capacity");
+  });
+
+  it("still places a lot that fits in what is left", () => {
+    const result = assign({
+      lots: [lot({ tonnes: 10 })],
+      units: [unit({ capacityTonnesPerDay: 45 })],
+      maxRadiusKm: 60,
+      committedTonnes: { unit_ldh: 30 },
+    });
+
+    expect(result.assignments).toHaveLength(1);
+    expect(result.assignments[0]?.rationale).toContain("15 t capacity free");
+    expect(result.remainingCapacity["unit_ldh"]).toBe(5);
+  });
+
+  it("never reports negative capacity if a unit is already overcommitted", () => {
+    const result = assign({
+      lots: [lot({ tonnes: 5 })],
+      units: [unit({ capacityTonnesPerDay: 45 })],
+      maxRadiusKm: 60,
+      committedTonnes: { unit_ldh: 60 },
+    });
+
+    expect(result.assignments).toHaveLength(0);
+    expect(result.remainingCapacity["unit_ldh"]).toBe(0);
+  });
+
+  it("ignores a commitment for a unit that is not in this round", () => {
+    const result = assign({
+      lots: [lot({ tonnes: 10 })],
+      units: [unit({ capacityTonnesPerDay: 45 })],
+      maxRadiusKm: 60,
+      committedTonnes: { unit_somewhere_else: 40 },
+    });
+
+    expect(result.assignments).toHaveLength(1);
+  });
+});
+
 describe("distance and transport debit", () => {
   /* THE KNOWN-PAIR ASSERTION — required by the definition of done.
      Ludhiana (30.901, 75.857) -> Patiala (30.339, 76.386):

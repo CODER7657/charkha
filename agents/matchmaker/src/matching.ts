@@ -51,9 +51,16 @@ export const assign = (args: {
   lots: readonly ResidueLot[];
   units: readonly ConversionUnit[];
   maxRadiusKm: number;
+  /**
+   * Tonnes already committed to each unit today by earlier rounds. Capacity
+   * is per DAY, not per round: without this a second round would hand a unit
+   * its full daily capacity again and quietly overcommit it.
+   */
+  committedTonnes?: Readonly<Record<string, number>>;
 }): MatchingResult => {
+  const committed = args.committedTonnes ?? {};
   const remaining = new Map<string, number>(
-    args.units.map((u) => [u.unitId, u.capacityTonnesPerDay]),
+    args.units.map((u) => [u.unitId, Math.max(0, u.capacityTonnesPerDay - (committed[u.unitId] ?? 0))]),
   );
 
   // Sort a copy - callers hand us their own array and should get it back intact.
