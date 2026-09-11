@@ -37,13 +37,20 @@ const WIDE = "72.0,28.0,79.0,33.0";
 
 type Probe = { label: string; bbox: string; dayRange: number };
 
+/**
+ * FIRMS caps DAY_RANGE at 5, not 10 - the area API docs say "1 .. 5" and the
+ * form only offers those. IngestBurnsInput currently allows up to 10, which is
+ * a bound we invented; a 7 there would be rejected upstream, not honoured.
+ */
+export const FIRMS_MAX_DAY_RANGE = 5;
+
 const PROBES: Probe[] = [
   { label: "belt  1d", bbox: BELT, dayRange: 1 },
   { label: "belt  2d  <- current default", bbox: BELT, dayRange: 2 },
-  { label: "belt  5d", bbox: BELT, dayRange: 5 },
-  { label: "belt 10d  <- max", bbox: BELT, dayRange: 10 },
+  { label: "belt  3d", bbox: BELT, dayRange: 3 },
+  { label: "belt  5d  <- FIRMS max", bbox: BELT, dayRange: FIRMS_MAX_DAY_RANGE },
   { label: "wide  2d", bbox: WIDE, dayRange: 2 },
-  { label: "wide 10d  <- max", bbox: WIDE, dayRange: 10 },
+  { label: "wide  5d  <- FIRMS max", bbox: WIDE, dayRange: FIRMS_MAX_DAY_RANGE },
 ];
 
 type Row = {
