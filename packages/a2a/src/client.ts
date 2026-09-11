@@ -26,12 +26,20 @@ type RpcResult = {
 
 const extract = (payload: RpcResult): { taskId: string; output: unknown; failed: boolean; text: string } => {
   const task = payload.result?.task;
-  const parts = (task?.status?.message?.parts ?? []) as Array<{ content?: { $case: string; value: unknown } }>;
+  // On the wire a v1.0 part is {data} or {text}; the protobuf {content:{$case}}
+  // shape is what the SDK hands the executor internally. Read both.
+  const parts = (task?.status?.message?.parts ?? []) as Array<{
+    data?: unknown;
+    text?: unknown;
+    content?: { $case: string; value: unknown };
+  }>;
   let output: unknown;
   let text = "";
   for (const p of parts) {
-    if (p.content?.$case === "data") output = p.content.value;
-    if (p.content?.$case === "text") text += String(p.content.value);
+    if (p.data !== undefined) output = p.data;
+    else if (p.content?.$case === "data") output = p.content.value;
+    if (p.text !== undefined) text += String(p.text);
+    else if (p.content?.$case === "text") text += String(p.content.value);
   }
   const state = String(task?.status?.state ?? "");
   return { taskId: task?.id ?? "", output, failed: /FAILED|4/.test(state) && output === undefined, text };
@@ -51,6 +59,8 @@ export const callAgent = async <T>(
       signal: controller.signal,
       headers: {
         "content-type": "application/json",
+        // Without this the server assumes 0.3 and rejects every call.
+        "a2a-version": "1.0",
         authorization: `Bearer ${mintAgentToken(opts.callerName ?? "charkha-agent")}`,
       },
       body: JSON.stringify({
@@ -58,16 +68,14 @@ export const callAgent = async <T>(
         id: Date.now(),
         method: "SendMessage",
         params: {
-          request: {
-            message: {
-              messageId: `m_${Date.now()}`,
-              role: "ROLE_USER",
-              parts: [{ content: { $case: "data", value: { skill, input } } }],
-              contextId: "",
-              taskId: "",
-              extensions: [],
-              referenceTaskIds: [],
-            },
+          message: {
+            messageId: `m_${Date.now()}`,
+            role: "ROLE_USER",
+            parts: [{ data: { skill, input } }],
+            contextId: "",
+            taskId: "",
+            extensions: [],
+            referenceTaskIds: [],
           },
         },
       }),

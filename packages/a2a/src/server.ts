@@ -186,7 +186,10 @@ export const startAgentServer = async (opts: AgentServerOptions): Promise<void> 
   // contract via getAgentCard().
   app.use("/.well-known/agent-card.json", agentCardHandler({ agentCardProvider: handler }));
 
-  app.post(
+  // Mount with app.use for the same reason as the card handler above: the SDK
+  // handler is a router that matches the request path itself, so app.post
+  // nests it one level deep and every call 404s.
+  app.use(
     "/a2a",
     jsonRpcHandler({
       requestHandler: handler,
