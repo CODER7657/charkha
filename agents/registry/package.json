@@ -1,0 +1,22 @@
+{
+  "name": "@charkha/agent-registry",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "keygen": "tsx src/keygen.ts"
+  },
+  "dependencies": {
+    "@charkha/a2a": "workspace:*",
+    "@charkha/core": "workspace:*",
+    "@charkha/db": "workspace:*",
+    "dotenv": "^17.4.2",
+    "zod": "^4.6.2",
+    "did-jwt-vc": "^4.0.16",
+    "did-resolver": "^5.0.1",
+    "key-did-resolver": "^4.0.0",
+    "@noble/curves": "^2.4.0"
+  }
+}

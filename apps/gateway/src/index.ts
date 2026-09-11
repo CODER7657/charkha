@@ -1,0 +1,90 @@
+import "dotenv/config";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+import Fastify from "fastify";
+import fastifyStatic from "@fastify/static";
+import { AGENTS, callAgent } from "@charkha/a2a";
+import { readChain, verifyLedger } from "@charkha/db/ledger";
+import { verifyChain, type TraceBundle } from "@charkha/core";
+import { buildTrace } from "./trace.ts";
+
+/* ------------------------------------------------------------------ *
+ * OWNER: core (Pavan)
+ *
+ * One origin. The browser talks only to this; it never talks to an agent
+ * directly and never holds a signing key. Agent-to-agent JWTs are minted
+ * here, server side.
+ * ------------------------------------------------------------------ */
+
+const PORT = Number(process.env["GATEWAY_PORT"] ?? 4000);
+const app = Fastify({ logger: { level: "info" } });
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const webDist = path.resolve(here, "../../web/dist");
+
+app.get("/api/health", async () => {
+  const check = async (name: keyof typeof AGENTS) => {
+    try {
+      const res = await fetch(`${AGENTS[name]().baseUrl}/health`, { signal: AbortSignal.timeout(2000) });
+      return { name, up: res.ok };
+    } catch {
+      return { name, up: false };
+    }
+  };
+  const agents = await Promise.all((Object.keys(AGENTS) as Array<keyof typeof AGENTS>).map(check));
+  return { ok: agents.every((a) => a.up), agents };
+});
+
+/* ---- producer / operator ---- */
+app.post("/api/ingest", async () => callAgent(AGENTS.producer(), "ingestBurns", {}, { callerName: "gateway" }));
+app.get("/api/lots", async (req) => {
+  const q = req.query as { district?: string; status?: string };
+  return callAgent(AGENTS.producer(), "listLots", { ...q, limit: 200 }, { callerName: "gateway" });
+});
+
+/* ---- matchmaker ---- */
+app.post("/api/match", async (req) => {
+  const body = (req.body ?? {}) as { district?: string; maxRadiusKm?: number };
+  return callAgent(AGENTS.matchmaker(), "runMatching", { maxRadiusKm: 60, ...body }, { callerName: "gateway" });
+});
+
+/* ---- verifier ---- */
+app.post("/api/evidence", async (req) =>
+  callAgent(AGENTS.verifier(), "verifyEvidence", req.body, { callerName: "gateway" }),
+);
+
+/* ---- registry ---- */
+app.post("/api/credits/issue", async (req) =>
+  callAgent(AGENTS.registry(), "issueCredit", req.body, { callerName: "gateway" }),
+);
+app.post("/api/credits/retire", async (req) =>
+  callAgent(AGENTS.registry(), "retireCredit", req.body, { callerName: "gateway" }),
+);
+
+/* ---- the thing a judge follows ---- */
+app.get("/api/ledger", async () => {
+  const chain = await readChain();
+  return { chain, verdict: verifyChain(chain) };
+});
+
+app.get("/api/trace/:taskId", async (req, reply) => {
+  const { taskId } = req.params as { taskId: string };
+  const bundle: TraceBundle | null = await buildTrace(taskId);
+  if (!bundle) return reply.code(404).send({ error: "no such task id" });
+  return bundle;
+});
+
+app.get("/api/verify-ledger", async () => verifyLedger());
+
+/* ---- serve the built SPA from the same origin ---- */
+try {
+  await app.register(fastifyStatic, { root: webDist, prefix: "/" });
+  app.setNotFoundHandler(async (req, reply) => {
+    if (req.url.startsWith("/api/")) return reply.code(404).send({ error: "not found" });
+    return reply.sendFile("index.html");
+  });
+} catch {
+  app.log.warn("web/dist not built yet - run: pnpm build:web");
+}
+
+await app.listen({ port: PORT, host: "0.0.0.0" });

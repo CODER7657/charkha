@@ -1,0 +1,31 @@
+{
+  "name": "charkha",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.22.0",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "dev": "concurrently -n producer,matchmaker,verifier,registry,gateway,web -c cyan,magenta,yellow,green,blue,white \"pnpm -F @charkha/agent-producer dev\" \"pnpm -F @charkha/agent-matchmaker dev\" \"pnpm -F @charkha/agent-verifier dev\" \"pnpm -F @charkha/agent-registry dev\" \"pnpm -F @charkha/gateway dev\" \"pnpm -F @charkha/web dev\"",
+    "db:push": "pnpm -F @charkha/db push",
+    "seed": "tsx scripts/seed.ts",
+    "typecheck": "tsc -b --pretty false || tsc --noEmit -p tsconfig.base.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint . --ext .ts,.tsx --max-warnings 0",
+    "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
+    "build:web": "pnpm -F @charkha/web build",
+    "verify": "pnpm typecheck && pnpm test && pnpm build:web"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@typescript-eslint/eslint-plugin": "^8.20.0",
+    "@typescript-eslint/parser": "^8.20.0",
+    "concurrently": "^9.1.2",
+    "eslint": "^9.18.0",
+    "prettier": "^3.4.2",
+    "tsx": "^4.23.13",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
+  }
+}

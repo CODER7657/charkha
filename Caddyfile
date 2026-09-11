@@ -1,0 +1,11 @@
+# Demo host. Replace charkha.example.com with the real hostname before the
+# demo and Caddy provisions TLS automatically. For a plain IP, use :80 instead.
+charkha.example.com {
+	encode gzip
+	reverse_proxy gateway:4000
+}
+
+:80 {
+	encode gzip
+	reverse_proxy gateway:4000
+}
