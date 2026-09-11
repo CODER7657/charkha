@@ -217,23 +217,27 @@ export const FieldCapture = () => {
           </p>
         </div>
         {/* Native names only. Someone who cannot read the English label cannot
-            read "Hindi" either. */}
-        <div className="fc-lang" role="group" aria-label="Language">
-          {LANGUAGES.map((l) => (
-            <button
-              key={l.code}
-              type="button"
-              lang={l.code}
-              className={l.code === lang ? "on" : ""}
-              aria-pressed={l.code === lang}
-              onClick={() => {
-                setLang(l.code);
-                rememberLang(l.code);
-              }}
-            >
-              {l.native}
-            </button>
-          ))}
+            read "Hindi" either. Labelled and sized as a primary control -
+            buried in a corner it may as well not exist for the user it is for. */}
+        <div className="fc-langwrap">
+          <span className="fc-langlabel">भाषा / ਭਾਸ਼ਾ / ભાષા / Language</span>
+          <div className="fc-lang" role="group" aria-label="Language">
+            {LANGUAGES.map((l) => (
+              <button
+                key={l.code}
+                type="button"
+                lang={l.code}
+                className={l.code === lang ? "on" : ""}
+                aria-pressed={l.code === lang}
+                onClick={() => {
+                  setLang(l.code);
+                  rememberLang(l.code);
+                }}
+              >
+                {l.native}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

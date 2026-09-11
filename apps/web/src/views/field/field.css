@@ -261,3 +261,274 @@
   color: var(--seq);
   font-weight: 600;
 }
+
+.fc-langwrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: none;
+}
+
+/* Labelled in all four languages at once, so whoever picks up the phone can
+   find it without already reading one of them. */
+.fc-langlabel {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+  text-align: right;
+}
+
+/* ================================================================== *
+ * Design pass. Appended so it wins on specificity ties without
+ * rewriting @Hem60's rules above.
+ *
+ * This is the one screen held in a hand, outdoors, in sunlight, by
+ * someone who may not read English. Tap targets are large, contrast is
+ * high, and state is carried by shape as well as colour.
+ * ================================================================== */
+
+.field {
+  gap: 16px;
+  max-width: 760px;
+}
+
+/* ---------- status bar ---------- */
+
+.field .fc-status {
+  background: linear-gradient(180deg, var(--soot), var(--void));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field .fc-pill {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  padding: 5px 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--crust);
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.field .fc-pill.ok {
+  border-color: color-mix(in srgb, var(--seq) 40%, transparent);
+  background: var(--seq-dim);
+  color: var(--seq);
+}
+.field .fc-pill.off {
+  border-color: color-mix(in srgb, var(--flame) 45%, transparent);
+  background: rgb(255 176 46 / 0.12);
+  color: var(--flame);
+}
+.field .fc-pill.warn {
+  border-color: color-mix(in srgb, var(--ember) 45%, transparent);
+  background: var(--ember-dim);
+  color: var(--ember);
+  cursor: pointer;
+}
+
+/* ---------- cards ---------- */
+
+.field .fc-card {
+  background: var(--soot);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 15px 16px 17px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.field .fc-card h2 {
+  font-size: 13px;
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+/* The step number, so the sequence is obvious without reading. */
+.field .fc-card h2::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ember);
+  flex: none;
+}
+
+/* ---------- inputs, sized for a thumb ---------- */
+
+.field label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--muted);
+  min-width: 0;
+}
+.field input,
+.field select {
+  min-height: 46px;
+  font-size: 16px; /* 16px stops iOS zooming the page on focus */
+}
+.field .fc-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 11px;
+}
+@media (max-width: 540px) {
+  .field .fc-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- the primary actions ---------- */
+
+.field .fc-submit,
+.field input[type="file"] + label,
+.field .fc-card > .row > button {
+  min-height: 50px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.field .fc-submit {
+  flex: 1;
+  border-color: color-mix(in srgb, var(--seq) 50%, var(--line));
+  background: linear-gradient(180deg, rgb(47 211 155 / 0.18), rgb(47 211 155 / 0.06));
+  color: #c4f5e4;
+}
+.field .fc-submit:hover:not(:disabled) {
+  border-color: var(--seq);
+  background: linear-gradient(180deg, rgb(47 211 155 / 0.3), rgb(47 211 155 / 0.11));
+}
+
+/* ---------- scores ---------- */
+
+.field .fc-scores {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.field .fc-scores > * {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  min-width: 0;
+}
+.field .num {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+  flex: none;
+  color: var(--ink);
+}
+
+/* ---------- verdict ---------- */
+
+.field .fc-result {
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  padding: 14px 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  position: relative;
+  overflow: hidden;
+}
+.field .fc-result::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--faint);
+}
+.field .fc-result.ok::before {
+  background: var(--seq);
+}
+.field .fc-result.warn::before {
+  background: var(--flame);
+}
+.field .fc-result.fail::before,
+.field .fc-error::before {
+  background: var(--ember);
+}
+
+.field .fc-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12.5px;
+}
+/* Pass and fail differ by mark as well as colour - sunlight washes out hue. */
+.field .fc-checks > *::before {
+  content: "×  ";
+  color: var(--ember);
+  font-family: var(--mono);
+}
+.field .fc-checks > .ok::before {
+  content: "✓  ";
+  color: var(--seq);
+}
+
+.field .fc-note {
+  font-size: 12.5px;
+  line-height: 1.55;
+  padding: 10px 12px;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  margin: 0;
+}
+.field .fc-note.warn {
+  color: var(--flame);
+  background: rgb(255 176 46 / 0.1);
+  border-left: 2px solid var(--flame);
+}
+
+/* ---------- the payload preview ---------- */
+
+.field details {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--void);
+}
+.field summary {
+  cursor: pointer;
+  padding: 11px 13px;
+  font-size: 12.5px;
+  color: var(--muted);
+  list-style: none;
+}
+.field summary::-webkit-details-marker {
+  display: none;
+}
+.field summary::before {
+  content: "▸ ";
+  color: var(--seq);
+}
+.field details[open] summary::before {
+  content: "▾ ";
+}
+.field details pre {
+  margin: 0;
+  padding: 0 13px 13px;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 260px;
+  overflow: auto;
+}
