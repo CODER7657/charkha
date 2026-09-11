@@ -104,6 +104,10 @@ export const ingestBurns = async (
     fetched: plan.parsed,
     newDetections,
     lotsCreated,
+    // Carried on the output so the operator view can say where this came
+    // from. A populated map is not evidence that the live feed answered.
+    origin: feed.origin,
+    originNote: feed.note,
   };
 
   // One decision per ingest round, including a round that found nothing - the
@@ -112,9 +116,8 @@ export const ingestBurns = async (
   // `input` goes in exactly as the contract defines it. It used to carry the
   // feed origin too, which meant inputHash digested a payload that matched no
   // contract - an auditor re-hashing IngestBurnsInput would get a mismatch and
-  // read it as tampering. Origin belongs on the OUTPUT, and that needs a field
-  // on IngestBurnsOutput: separate one-file contracts PR. Until then it lives
-  // in the progress stream above.
+  // read it as tampering. Origin lives on the OUTPUT now, where it is part of
+  // the contract and so part of outputHash honestly.
   await appendDecision({
     taskId: ctx.taskId,
     agent: "producer",

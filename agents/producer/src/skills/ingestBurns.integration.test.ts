@@ -89,6 +89,16 @@ describe.skipIf(!canRun)("ingestBurns against a real database", () => {
     expect(await lotCount()).toBe(after);
   });
 
+  /* A populated map must never imply the live feed answered. */
+  it("reports where the CSV actually came from", async () => {
+    const out = await ingestBurns({}, ctx("task_ingest_origin"));
+
+    // No key and an empty cache dir, so this run can only be the bundled sample.
+    expect(out.origin).toBe("fixture");
+    expect(out.originNote).toMatch(/FIRMS_MAP_KEY is not set/);
+    expect(out.originNote).toMatch(/bundled sample/);
+  });
+
   it("gives every lot the detection it came from", async () => {
     await ingestBurns({}, ctx("task_ingest_3"));
 

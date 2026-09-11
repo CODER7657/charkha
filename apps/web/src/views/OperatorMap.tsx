@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CircleMarker, MapContainer, Marker, Polyline, Popup, TileLayer } from "react-leaflet";
 import L from "leaflet";
-import type { ConversionUnit, Match, ResidueLot } from "@charkha/core";
+import type { ConversionUnit, FeedOrigin, Match, ResidueLot } from "@charkha/core";
 import "leaflet/dist/leaflet.css";
 import "./OperatorMap.css";
 
@@ -28,6 +28,9 @@ const BELT_ZOOM = 8;
 const MAX_RADIUS_KM = 60;
 
 type Envelope<T> = { taskId?: string; output: T };
+
+/** The shape of IngestBurnsOutput we actually read here. */
+type IngestResult = { lotsCreated: number; origin: FeedOrigin; originNote: string };
 
 const get = async <T,>(path: string): Promise<T> => {
   const res = await fetch(`/api${path}`, { headers: { "content-type": "application/json" } });
@@ -77,6 +80,7 @@ export const OperatorMap = () => {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [unitsMissing, setUnitsMissing] = useState(false);
+  const [feed, setFeed] = useState<{ origin: FeedOrigin; note: string } | null>(null);
 
   const loadLots = useCallback(async () => {
     const res = await get<Envelope<{ lots: ResidueLot[] }>>("/lots");
@@ -100,7 +104,8 @@ export const OperatorMap = () => {
   }, []);
 
   const ingest = useCallback(async () => {
-    const res = await post<Envelope<{ lotsCreated: number }>>("/ingest", {});
+    const res = await post<Envelope<IngestResult>>("/ingest", {});
+    if (res.output) setFeed({ origin: res.output.origin, note: res.output.originNote });
     await loadLots();
     return res;
   }, [loadLots]);
@@ -217,6 +222,14 @@ export const OperatorMap = () => {
         <Stat label="Matched" value={nf.format(totals.matched)} unit={unmatched.length > 0 ? `of ${totals.lots}` : undefined} />
         <Stat label="Transport debit" value={n1.format(totals.debit)} unit="kgCO₂e" />
       </div>
+
+      {feed && feed.origin !== "live" ? (
+        <p className="origin warn">
+          {feed.origin === "cache" ? "Showing cached detections" : "Showing the bundled sample feed"} —{" "}
+          {feed.note}
+        </p>
+      ) : null}
+      {feed?.origin === "live" ? <p className="origin">{feed.note}</p> : null}
 
       {unitsMissing ? (
         <p className="origin warn">
