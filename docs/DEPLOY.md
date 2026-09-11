@@ -25,15 +25,32 @@ with ten hours left, not two.
 ### Why these VM specs, specifically
 
 ```
-Standard_B2s — 2 vCPU, 4 GiB RAM, x86_64
+Standard_B2as_v2 — 2 vCPU, 8 GiB RAM, x86_64 (AMD)
 ```
 
 - **x86 is mandatory, not a preference.** `onnxruntime-node` publishes no
   prebuilt Linux `arm64` binary ([microsoft/onnxruntime#8176]). An ARM VM
   installs cleanly and then fails the first time the verifier runs inference —
-  at the worst possible moment. Never pick an Ampere or ARM SKU for this.
-- **4 GiB, not 1 GiB.** Postgres, four agents, the gateway and Caddy, plus
+  at the worst possible moment. Never pick an Ampere SKU, and note that ARM
+  sizes are easy to choose by accident: they carry a `p` in the name
+  (`Standard_D2ps_v5`, `Standard_B2pts_v2`). Intel and AMD sizes are both fine.
+- **4 GiB minimum.** Postgres, four agents, the gateway and Caddy, plus
   200–400 MB when the verifier loads its model. A 1 GiB free-tier box OOMs.
+
+> **`Standard_B2s` was our first choice and Azure refused it.** Preflight
+> returned `SkuNotAvailable — Capacity Restrictions` in `centralindia`. This is
+> not a quota problem and asking for more quota does not fix it; that size is
+> simply full in that region. `Standard_B2as_v2` (AMD, 8 GiB) was available
+> immediately in the same region.
+>
+> **Expect this and do not lose time to it.** If a size is refused, try another
+> x86 size before you try another region — a nearby region is worth more on
+> demo day than any particular SKU name. Working fallbacks, all x86:
+> `Standard_B2as_v2`, `Standard_D2s_v3`, `Standard_D2as_v5`.
+>
+> Do not bother pre-checking with `az vm list-skus`: it is slow, and on a
+> constrained link it can take longer than simply attempting the create.
+> Preflight failures come back in seconds and name the reason precisely.
 
 [microsoft/onnxruntime#8176]: https://github.com/microsoft/onnxruntime/issues/8176
 
@@ -66,19 +83,19 @@ Pick a region close to the venue — latency shows on stage. `centralindia`,
 `southeastasia` and `eastus` are all reasonable.
 
 ```bash
-az vm create \
-  --resource-group charkha-rg \
-  --name charkha-vm \
-  --image Ubuntu2404 \
-  --size Standard_B2s \
-  --admin-username charkha \
-  --generate-ssh-keys \
-  --public-ip-sku Standard \
-  --output table
+Generate a key first. `--generate-ssh-keys` needs `ssh-keygen` on PATH, and on
+Windows it usually is not, even though Git ships one:
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/charkha_azure -N "" -C "charkha-deploy"
 ```
 
-`--generate-ssh-keys` writes `~/.ssh/id_rsa` if you have no key. Note the
-`publicIpAddress` from the output.
+```bash
+az vm create   --resource-group charkha-rg   --name charkha-vm   --image Ubuntu2404   --size Standard_B2as_v2   --admin-username charkha   --ssh-key-values "$(cat ~/.ssh/charkha_azure.pub)"   --public-ip-sku Standard   --os-disk-size-gb 32   --output table
+```
+
+Takes a few minutes. Note the `publicIpAddress` from the output. Keys only —
+password authentication is deliberately not used.
 
 Open only what we serve on:
 
@@ -99,7 +116,7 @@ Azure will give the VM a free DNS label, which is enough for a real certificate:
 ```bash
 az network public-ip update \
   --resource-group charkha-rg \
-  --name charkha-vmPublicIP \
+  --name charkha-vmPublicIP  # confirm with: az network public-ip list -g charkha-rg --query "[0].name" -o tsv \
   --dns-name charkha-hashhawks \
   --output table
 ```
@@ -117,7 +134,7 @@ nslookup charkha-hashhawks.centralindia.cloudapp.azure.com
 ## 4. Docker on the box
 
 ```bash
-ssh charkha@<public-ip>
+ssh -i ~/.ssh/charkha_azure charkha@<public-ip>
 ```
 
 ```bash
@@ -311,7 +328,8 @@ az group delete --name charkha-rg --yes --no-wait
 | Verifier crashes on inference | ARM VM. `onnxruntime-node` has no arm64 binary — rebuild on x86 |
 | `migrate` exits non-zero | `POSTGRES_PASSWORD` unset in `.env`; compose requires it deliberately |
 | Agents up, calls 404 | Gateway cannot reach agents; check service names in compose |
-| Everything slow, OOM kills | VM too small. `Standard_B2s` minimum |
+| Everything slow, OOM kills | VM too small. 2 vCPU / 4 GiB minimum |
+| `SkuNotAvailable` at create | Capacity restriction, not quota. Try another x86 size before another region — see §0 |
 
 ---
 
