@@ -38,7 +38,19 @@ export type SkillHandler<I extends z.ZodTypeAny, O> = {
   run: (input: z.infer<I>, ctx: SkillContext) => Promise<O>;
 };
 
-export type SkillMap = Record<string, SkillHandler<z.ZodTypeAny, unknown>>;
+/**
+ * Registry entry. A `Record` of differently-typed handlers cannot use the
+ * generic directly - a handler taking a concrete input is not assignable to
+ * one taking the widest input. `never` in the parameter position is the
+ * standard way out: every concrete handler fits, and authors still get full
+ * typing at the registration site via SkillHandler.
+ */
+export type AnySkill = {
+  input: z.ZodTypeAny;
+  run: (input: never, ctx: SkillContext) => Promise<unknown>;
+};
+
+export type SkillMap = Record<string, AnySkill>;
 
 const textPart = (value: string): Part => ({ content: { $case: "text", value }, metadata: undefined, filename: "" }) as Part;
 const dataPart = (value: unknown): Part => ({ content: { $case: "data", value }, metadata: undefined, filename: "" }) as Part;
@@ -119,7 +131,7 @@ class SkillExecutor implements AgentExecutor {
         },
       };
 
-      const output = await handler.run(parsed.data, ctx);
+      const output = await handler.run(parsed.data as never, ctx);
       if (this.canceled.has(taskId)) return;
 
       status(TaskState.TASK_STATE_COMPLETED, [dataPart(output)], true);
