@@ -45,6 +45,23 @@
     "Noto Sans Gujarati", "Nirmala UI", Roboto, sans-serif;
   --mono: ui-monospace, "JetBrains Mono", Consolas, "Noto Sans Mono", monospace;
 
+
+  /* ---- compatibility aliases ----
+   *
+   * The view stylesheets were written against these names before the palette
+   * was renamed, and a var() that resolves to nothing fails SILENTLY: the
+   * declaration is dropped and the element renders with no background or no
+   * accent at all. Removing them broke the Operator and Audit views without a
+   * single error anywhere.
+   *
+   * They are aliases, not a second palette. One hue, two names. Prefer the
+   * names above in new code; do not delete these without checking every
+   * var() in apps/web/src/views first. */
+  --bg: var(--void);
+  --panel: var(--soot);
+  --accent: var(--seq);
+  --hot: var(--ember);
+
   color-scheme: dark;
 }
 

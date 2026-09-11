@@ -1,379 +1,352 @@
-/* ------------------------------------------------------------------ *
- * Audit — the screen that is on stage for half the pitch.
- *
- * Two claims get made here and both are demonstrated rather than asserted:
- * the chain is re-hashed in the viewer's own browser, and the credential's
- * signature is checked against a locally resolved DID. The design job is to
- * make the verdict readable from the back of a room and the break, when the
- * tamper demo runs, impossible to miss.
- *
- * Styling only. The markup and behaviour are @Ayush3422's.
- * ------------------------------------------------------------------ */
+/* Audit console. Owner: Ayush. Everything here is scoped under .audit so it
+   cannot leak into the operator or field views. */
 
 .audit {
+  --ok: #46c79a;
+  --bad: #ff5a52;
+  --warn: #f0b429;
+  display: flex;
+  flex-direction: column;
   gap: 16px;
 }
 
-/* ---------- the verdict banner ---------- */
-
-.audit .audit-verdict {
+.audit-verdict {
   display: flex;
   align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-  padding: 16px 20px;
-  border-radius: var(--radius);
+  gap: 14px;
+  padding: 14px 16px;
   border: 1px solid var(--line);
-  background: var(--soot);
-  position: relative;
-  overflow: hidden;
+  border-left-width: 3px;
+  border-radius: 4px;
+  background: var(--panel);
 }
-
-/* A 3px rail rather than a tint alone: colour is not the only signal, which
-   matters on a projector and for a colourblind viewer. */
-.audit .audit-verdict::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 3px;
-  background: var(--faint);
+.audit-verdict.valid {
+  border-left-color: var(--ok);
 }
-.audit .audit-verdict.valid::before {
-  background: var(--seq);
+.audit-verdict.broken {
+  border-left-color: var(--bad);
 }
-.audit .audit-verdict.broken::before {
-  background: var(--ember);
+.audit-verdict.unknown {
+  border-left-color: var(--muted);
 }
-
-.audit .audit-verdict .stamp {
-  font-family: var(--mono);
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.audit .audit-verdict.valid {
-  background: linear-gradient(90deg, var(--seq-dim), var(--soot) 62%);
-}
-.audit .audit-verdict.valid .stamp {
-  color: var(--seq);
-}
-.audit .audit-verdict.broken {
-  background: linear-gradient(90deg, var(--ember-dim), var(--soot) 62%);
-}
-.audit .audit-verdict.broken .stamp {
-  color: var(--ember);
-}
-.audit .audit-verdict .detail {
+.audit-verdict .stamp {
+  font-weight: 650;
+  letter-spacing: 0.08em;
   font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.audit-verdict.valid .stamp {
+  color: var(--ok);
+}
+.audit-verdict.broken .stamp {
+  color: var(--bad);
+}
+.audit-verdict .detail {
   color: var(--muted);
-  line-height: 1.45;
+  font-size: 13px;
 }
 
-/* ---------- toolbar ---------- */
-
-.audit .audit-toolbar {
+.audit-toolbar {
   display: flex;
-  gap: 8px;
   flex-wrap: wrap;
+  gap: 8px;
   align-items: center;
 }
-.audit .audit-toolbar button.primary {
-  border-color: color-mix(in srgb, var(--seq) 50%, var(--line));
-  background: linear-gradient(180deg, rgb(47 211 155 / 0.16), rgb(47 211 155 / 0.05));
-  color: #c4f5e4;
+.audit button {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  padding: 7px 13px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.audit button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+.audit button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.audit button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #08130f;
   font-weight: 600;
 }
-.audit .audit-toolbar button.primary:hover:not(:disabled) {
-  border-color: var(--seq);
-  background: linear-gradient(180deg, rgb(47 211 155 / 0.26), rgb(47 211 155 / 0.09));
+.audit button.danger {
+  border-color: #5a2b28;
+  color: #ffb3ae;
 }
-.audit .audit-toolbar button.danger {
-  border-color: color-mix(in srgb, var(--ember) 50%, var(--line));
-  color: #ffd0bd;
-}
-.audit .audit-toolbar button.danger:hover:not(:disabled) {
-  border-color: var(--ember);
-  background: rgb(255 90 31 / 0.12);
-}
-
-.audit .tamper-note {
-  font-size: 12.5px;
-  line-height: 1.55;
-  color: var(--flame);
-  background: rgb(255 176 46 / 0.09);
-  border-left: 2px solid var(--flame);
-  padding: 9px 12px;
-  border-radius: 0 var(--radius) var(--radius) 0;
-  margin: 0 0 10px;
-}
-
-/* ---------- layout ---------- */
 
 .audit .grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
-  gap: 14px;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 16px;
   align-items: start;
 }
-@media (max-width: 980px) {
+@media (max-width: 1000px) {
   .audit .grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
 .audit .card {
-  background: var(--soot);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 15px 16px 16px;
-  min-width: 0;
+  border-radius: 4px;
+  background: var(--panel);
+  overflow: hidden;
 }
 .audit .card > header {
   display: flex;
   align-items: baseline;
+  justify-content: space-between;
   gap: 10px;
-  border-bottom: 1px solid var(--line-soft);
-  padding-bottom: 9px;
-  margin-bottom: 11px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--line);
 }
 .audit .card h2 {
-  font-size: 13.5px;
   margin: 0;
-  font-weight: 700;
-}
-.audit .card > header .muted {
-  margin-left: auto;
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.1em;
+  font-size: 13px;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+}
+.audit .card .body {
+  padding: 12px 14px;
 }
 
-/* ---------- the chain ---------- */
+/* ---- the chain ---- */
 
-.audit .chain {
+.chain {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  max-height: 520px;
+  max-height: 62vh;
   overflow-y: auto;
 }
-
-.audit .chain li {
-  display: flex;
-  gap: 11px;
-  padding: 9px 10px;
-  border-left: 2px solid var(--line);
+.chain li {
   position: relative;
-  min-width: 0;
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
 }
-/* A hairline spine joining the records, so the chain reads as linked. */
-.audit .chain li + li {
-  border-top: 1px solid var(--line-soft);
+.chain li:last-child {
+  border-bottom: 0;
 }
-
-.audit .chain .seq {
-  font-family: var(--mono);
-  font-size: 10.5px;
-  color: var(--faint);
-  flex: none;
-  width: 30px;
+.chain li.selected {
+  background: #1b201e;
+}
+.chain li.broken-here {
+  background: #241a19;
+}
+.chain li.after-break {
+  opacity: 0.45;
+}
+.chain .seq {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  font-size: 12px;
   padding-top: 2px;
+}
+/* the link to the previous record */
+.chain li:not(:first-child) .seq::before {
+  content: "";
+  position: absolute;
+  left: 27px;
+  top: -1px;
+  width: 1px;
+  height: 11px;
+  background: var(--line);
+}
+.chain li.broken-here .seq::before {
+  background: var(--bad);
+}
+.chain .row1 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+.chain .agent {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+  border: 1px solid #24463c;
+  border-radius: 2px;
+  padding: 1px 6px;
+}
+.chain .action {
+  font-weight: 600;
+  font-size: 13.5px;
+}
+.chain .confidence {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
-.audit .chain .row1 {
+.chain .row2 {
   display: flex;
-  align-items: center;
-  gap: 8px;
   flex-wrap: wrap;
-  min-width: 0;
-}
-.audit .chain .row2 {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 4px;
-  min-width: 0;
-}
-.audit .chain .agent {
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  padding: 2px 6px;
-  border-radius: 2px;
-  background: var(--crust);
-  color: var(--muted);
-  flex: none;
-}
-.audit .chain .action {
-  font-family: var(--mono);
-  font-size: 12px;
-  color: var(--ink);
-}
-.audit .chain .confidence,
-.audit .chain .detail {
-  font-family: var(--mono);
-  font-size: 10.5px;
-  color: var(--faint);
-}
-
-/* The tamper demo. The edited record and everything orphaned after it must be
-   obvious across a room - this is a twenty-second beat and it has to land. */
-.audit .chain li.broken-here {
-  background: rgb(255 90 31 / 0.14);
-  border-left-color: var(--ember);
-}
-.audit .chain li.after-break {
-  opacity: 0.45;
-  border-left-color: var(--ember-dim);
-}
-.audit .chain .edited {
-  font-family: var(--mono);
-  font-size: 9.5px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ember);
-  border: 1px solid color-mix(in srgb, var(--ember) 45%, transparent);
-  padding: 1px 5px;
-  border-radius: 2px;
-  flex: none;
-}
-
-.audit .chain input.edit {
-  background: var(--void);
-  border: 1px solid var(--flame);
-  color: var(--ink);
-  font-family: var(--mono);
+  gap: 10px;
+  margin-top: 5px;
   font-size: 11.5px;
-  padding: 3px 7px;
-  border-radius: 2px;
-  min-width: 90px;
-  max-width: 190px;
+  color: var(--muted);
 }
-
-/* Click-to-copy hashes. Judges ask for these. */
 .audit .hash {
-  font-family: var(--mono);
-  font-size: 10.5px;
-  color: var(--seq);
+  font-family: ui-monospace, "Cascadia Mono", Menlo, monospace;
+  font-size: 11.5px;
   background: transparent;
-  border: 1px solid transparent;
-  padding: 1px 5px;
+  border: 1px dashed var(--line);
   border-radius: 2px;
-  cursor: pointer;
+  color: var(--muted);
+  padding: 1px 5px;
+  cursor: copy;
 }
 .audit .hash:hover {
-  border-color: var(--line);
-  background: var(--crust);
+  color: var(--ink);
+  border-color: var(--accent);
 }
 .audit .hash.copied {
-  color: var(--void);
-  background: var(--seq);
-  border-color: var(--seq);
+  color: var(--accent);
+  border-style: solid;
 }
 
-/* ---------- credential ---------- */
+/* ---- tamper demo ---- */
 
-.audit .pill {
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  padding: 3px 8px;
-  border-radius: 2px;
-  flex: none;
-}
-.audit .pill.ok {
-  background: var(--seq-dim);
-  color: var(--seq);
-  border: 1px solid color-mix(in srgb, var(--seq) 40%, transparent);
-}
-.audit .pill.fail {
-  background: var(--ember-dim);
-  color: var(--ember);
-  border: 1px solid color-mix(in srgb, var(--ember) 40%, transparent);
-}
-
-.audit .claims {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  margin: 0;
-}
-.audit .claims > div,
-.audit .claims .row {
-  display: flex;
-  gap: 10px;
-  align-items: baseline;
+.tamper-note {
   font-size: 12.5px;
-  min-width: 0;
-}
-.audit .claims dt,
-.audit .claims .label {
-  font-family: var(--mono);
-  font-size: 9.5px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--faint);
-  flex: none;
-  width: 116px;
-}
-.audit .claims dd,
-.audit .claims .value {
-  margin: 0;
-  color: var(--ink);
-  overflow-wrap: anywhere;
-}
-
-.audit .raw {
-  font-family: var(--mono);
-  font-size: 10.5px;
-  line-height: 1.6;
   color: var(--muted);
-  background: var(--void);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 11px 12px;
-  max-height: 240px;
-  overflow: auto;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  margin: 0;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  background: #1a1614;
+}
+.chain input.edit {
+  background: #101413;
+  border: 1px solid var(--warn);
+  color: var(--ink);
+  border-radius: 2px;
+  font: inherit;
+  font-size: 13px;
+  padding: 1px 5px;
+  min-width: 8ch;
+}
+.chain .edited {
+  color: var(--warn);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
-/* ---------- lookup ---------- */
+/* ---- credential panel ---- */
 
 .audit .lookup {
   display: flex;
   gap: 8px;
-  flex-wrap: wrap;
 }
 .audit .lookup input {
   flex: 1;
-  min-width: 190px;
-  font-family: var(--mono);
-  font-size: 12.5px;
+  min-width: 0;
+  background: #101413;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  padding: 7px 10px;
+}
+.audit .lookup input:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 
+.audit dl.claims {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  gap: 5px 14px;
+  margin: 0;
+  font-size: 13px;
+}
+.audit dl.claims dt {
+  color: var(--muted);
+  white-space: nowrap;
+}
+.audit dl.claims dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.audit .figure {
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
+.audit .pill {
+  display: inline-block;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 2px;
+  padding: 1px 7px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+.audit .pill.issued {
+  color: var(--ok);
+  border-color: #24463c;
+}
+.audit .pill.retired {
+  color: var(--warn);
+  border-color: #4a3a17;
+}
+.audit .pill.ok {
+  color: var(--ok);
+  border-color: #24463c;
+}
+.audit .pill.fail {
+  color: var(--bad);
+  border-color: #5a2b28;
+}
+
+.audit pre.raw {
+  margin: 10px 0 0;
+  padding: 10px;
+  background: #101413;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  max-height: 240px;
+  overflow: auto;
+}
+.audit .muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+.audit .err {
+  color: #ffb3ae;
+  font-size: 13px;
+}
 .audit .thread {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
   display: flex;
-  flex-direction: column;
-  gap: 7px;
-  margin-top: 11px;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12px;
 }
-.audit .thread > * {
-  display: flex;
-  gap: 10px;
-  align-items: baseline;
-  font-size: 12.5px;
-  padding-bottom: 7px;
-  border-bottom: 1px solid var(--line-soft);
+.audit .thread li {
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: 3px 8px;
+  color: var(--muted);
 }
-.audit .thread > *:last-child {
-  border-bottom: 0;
+.audit .thread li.on {
+  color: var(--ink);
+  border-color: var(--accent);
 }
