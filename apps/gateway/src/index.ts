@@ -48,6 +48,10 @@ app.post("/api/match", async (req) => {
   const body = (req.body ?? {}) as { district?: string; maxRadiusKm?: number };
   return callAgent(AGENTS.matchmaker(), "runMatching", { maxRadiusKm: 60, ...body }, { callerName: "gateway" });
 });
+app.get("/api/units", async (req) => {
+  const q = req.query as { feedstock?: string };
+  return callAgent(AGENTS.matchmaker(), "listUnits", { ...q, limit: 200 }, { callerName: "gateway" });
+});
 
 /* ---- verifier ---- */
 app.post("/api/evidence", async (req) =>
