@@ -188,7 +188,6 @@ export const startAgentServer = async (opts: AgentServerOptions): Promise<void> 
 
   await new Promise<void>((resolve) => {
     app.listen(opts.port, () => {
-      // eslint-disable-next-line no-console
       console.log(`[${opts.card.name}] a2a on :${opts.port}  card /.well-known/agent-card.json`);
       resolve();
     });
