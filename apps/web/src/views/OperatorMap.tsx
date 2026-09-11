@@ -222,7 +222,11 @@ export const OperatorMap = () => {
 
       <div className="board">
         <div className="map-wrap">
-          <MapContainer center={BELT_CENTRE} zoom={BELT_ZOOM} scrollWheelZoom>
+          {/* Wheel zoom off on purpose: the map is taller than most laptop
+              viewports, so a wheel that zoomed would swallow every attempt to
+              scroll the page and drop the demo out over Rajasthan. The +/-
+              control and double-click still zoom. */}
+          <MapContainer center={BELT_CENTRE} zoom={BELT_ZOOM} scrollWheelZoom={false}>
             <TileLayer
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
