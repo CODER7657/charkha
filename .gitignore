@@ -7,7 +7,11 @@ build/
 .DS_Store
 .pnpm-store/
 coverage/
+# Trained models are big and get regenerated - keep them out.
 ml/models/*.onnx
 !ml/models/.gitkeep
+# ...except a small committed baseline, so both runtimes, the parity test and
+# the field view work end to end from a clean clone with no training step.
+!ml/models/baseline-*.onnx
 data/firms-cache/
 .vite/
