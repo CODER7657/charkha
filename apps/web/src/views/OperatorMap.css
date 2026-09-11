@@ -1,0 +1,277 @@
+/* OWNER: Harsh - the Operator view only. Scoped under .operator so it cannot
+   reach into anyone else's view. Colours come from the shell's tokens in
+   ui.css; nothing here invents a new one. */
+
+.operator .strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+/* Stat tile: label above, value below. The value is the only large thing on
+   the tile, and it wears ink - never a series colour. */
+.operator .stat {
+  background: var(--panel);
+  padding: 11px 14px;
+  min-width: 0;
+}
+
+.operator .stat-label {
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.01em;
+  margin-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.operator .stat-value {
+  font-size: 23px;
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--ink);
+}
+
+.operator .stat-unit {
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--muted);
+  margin-left: 4px;
+}
+
+.operator .board {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 290px;
+  gap: 14px;
+  align-items: start;
+}
+
+.operator .map-wrap {
+  position: relative;
+  height: 520px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--panel);
+}
+
+.operator .leaflet-container {
+  height: 100%;
+  width: 100%;
+  background: #10130f;
+  font: inherit;
+}
+
+/* OSM tiles are a bright daylight map inside a dark shell. Taking the edge
+   off them keeps the markers readable without hiding the basemap. */
+.operator .leaflet-tile-pane {
+  filter: brightness(0.72) saturate(0.72) contrast(1.04);
+}
+
+.operator .leaflet-popup-content-wrapper,
+.operator .leaflet-popup-tip {
+  background: var(--panel);
+  color: var(--ink);
+  border-radius: 3px;
+}
+
+.operator .leaflet-popup-content {
+  margin: 9px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.operator .leaflet-control-attribution {
+  background: rgba(15, 18, 17, 0.82);
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.operator .leaflet-control-attribution a {
+  color: var(--muted);
+}
+
+/* Legend: identity is never colour alone - each key carries a shape and a
+   word as well as a hue. */
+.operator .legend {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 500;
+  background: rgba(23, 27, 25, 0.92);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.operator .key {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.operator .key i {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  display: inline-block;
+}
+
+.operator .key.burn i {
+  border-radius: 50%;
+  background: var(--hot);
+}
+
+.operator .key.unit i {
+  background: var(--accent);
+}
+
+.operator .key.link i {
+  height: 0;
+  border-top: 2px dashed var(--accent);
+  width: 14px;
+}
+
+.operator .unit-pin {
+  background: var(--accent);
+  border: 1.5px solid #0f1211;
+  width: 11px;
+  height: 11px;
+}
+
+.operator .panel {
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--panel);
+  padding: 13px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 520px;
+  overflow-y: auto;
+}
+
+.operator .panel h2 {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.operator .rationale {
+  color: var(--ink);
+  font-size: 13.5px;
+  line-height: 1.5;
+  margin: 0;
+  padding: 9px 11px;
+  border-left: 2px solid var(--accent);
+  background: var(--bg);
+  border-radius: 0 3px 3px 0;
+}
+
+.operator .facts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.operator .facts div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.operator .facts dt {
+  color: var(--muted);
+}
+
+.operator .facts dd {
+  margin: 0;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.operator .match-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.operator .match-list button {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 7px 9px;
+  font-size: 12.5px;
+  color: var(--muted);
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.operator .match-list button:hover:not(:disabled) {
+  background: var(--bg);
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+.operator .match-list button.on {
+  background: var(--bg);
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.operator .match-list b {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.operator .origin {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0;
+}
+
+.operator .origin.warn {
+  color: var(--hot);
+}
+
+.operator .empty {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0;
+}
+
+@media (max-width: 860px) {
+  .operator .board {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .operator .strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .operator .map-wrap {
+    height: 380px;
+  }
+  .operator .panel {
+    max-height: none;
+  }
+}

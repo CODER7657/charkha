@@ -1,5 +1,6 @@
 import { loadEnv, buildAgentCard, startAgentServer } from "@charkha/a2a";
 import { ListLotsInput, IngestBurnsInput } from "@charkha/core";
+import { AGENT_NAME, AGENT_VERSION } from "./card.ts";
 import { ingestBurns } from "./skills/ingestBurns.ts";
 import { listLots } from "./skills/listLots.ts";
 
@@ -8,7 +9,8 @@ loadEnv();
 const PORT = Number(process.env["PRODUCER_PORT"] ?? 4001);
 
 const card = buildAgentCard({
-  name: "Charkha Producer",
+  name: AGENT_NAME,
+  version: AGENT_VERSION,
   description: "Publishes crop-residue lots available for collection, seeded from satellite burn detections and registered plots.",
   url: `${process.env["PRODUCER_URL"] ?? `http://localhost:${PORT}`}/a2a`,
   skills: [
