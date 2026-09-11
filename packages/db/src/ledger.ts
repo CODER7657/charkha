@@ -73,3 +73,27 @@ export const readChain = async (taskId?: string): Promise<DecisionRecord[]> => {
  * audit console must check the full ledger and then highlight the slice.
  */
 export const verifyLedger = async () => verifyChain(await readChain());
+
+/* ------------------------------------------------------------------ *
+ * Status-list index allocation.
+ * ------------------------------------------------------------------ */
+
+/**
+ * Reserve the next status-list bit position.
+ *
+ * MUST be called before the credential is signed, and the returned value used
+ * verbatim. Deriving an index from a row count - even into a stored column -
+ * reproduces the race this exists to close: two concurrent issuances embed the
+ * same index, and retiring one then sets the bit the other points at, so a
+ * retired credit keeps verifying as live under our own signature.
+ *
+ * A sequence is atomic and never reuses a value, including across rollbacks.
+ * Gaps are fine; collisions are not.
+ */
+export const nextStatusListIndex = async (): Promise<number> => {
+  const result = await db().execute<{ v: string }>(sql`SELECT nextval('credit_status_list_index_seq') AS v`);
+  const rows = (result as { rows?: Array<{ v: string }> }).rows ?? (result as unknown as Array<{ v: string }>);
+  const value = Number(rows[0]?.v);
+  if (!Number.isInteger(value) || value < 0) throw new Error("could not allocate a status list index");
+  return value;
+};

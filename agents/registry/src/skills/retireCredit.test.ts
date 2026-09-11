@@ -19,6 +19,8 @@ const CREDIT: CreditRecord = {
   credentialJwt: "jwt.goes.here",
   credentialId: "urn:charkha:credential:crd_1",
   issuerDid: "did:key:z6MkTestIssuer",
+  holder: "acme-offtaker",
+  statusListIndex: 0,
 };
 
 const ctx = { taskId: "task_9", contextId: "ctx_9", progress: () => {} };
@@ -62,7 +64,11 @@ describe("idempotency", () => {
   it("does not append a second decision", async () => {
     await retireCredit(input, ctx);
     await retireCredit(input, ctx);
-    await retireCredit({ ...input, retiredBy: "someone-else" }, { ...ctx, taskId: "task_10" });
+    // Was a third call from a different caller. Since the holder check landed,
+    // that is a refusal rather than a quiet no-op, and it is asserted as such
+    // in "only the holder can retire". The point here is unchanged: repeated
+    // retirement must not make the ledger claim it happened twice.
+    await retireCredit(input, { ...ctx, taskId: "task_10" });
     expect(store.decisions).toHaveLength(1);
   });
 });
@@ -94,5 +100,42 @@ describe("status list", () => {
 
   it("refuses an index past the end of the list", () => {
     expect(() => encodeStatusList([16 * 1024 * 8])).toThrow(/out of range/);
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * The holder check.
+ *
+ * Credit ids are not secret: GET /api/ledger and GET /api/trace/:taskId are
+ * unauthenticated, so two requests enumerate every credit in the system.
+ * Retirement is terminal and globally visible. Without an owner, anyone could
+ * permanently retire all of them.
+ * ------------------------------------------------------------------ */
+describe("only the holder can retire", () => {
+  it("refuses when retiredBy is not the holder", async () => {
+    await expect(retireCredit({ ...input, retiredBy: "someone-else" }, ctx)).rejects.toThrow(
+      /does not match the credit's holder/,
+    );
+  });
+
+  it("appends no decision for a refused retirement", async () => {
+    const before = store.decisions.length;
+    await expect(retireCredit({ ...input, retiredBy: "someone-else" }, ctx)).rejects.toThrow();
+    expect(store.decisions.length).toBe(before);
+  });
+
+  it("leaves the credit issued after a refused retirement", async () => {
+    await expect(retireCredit({ ...input, retiredBy: "someone-else" }, ctx)).rejects.toThrow();
+    const after = await store.findCreditById("crd_1");
+    expect(after?.status).toBe("issued");
+  });
+
+  /* Checked before the idempotent early return on purpose: a wrong caller must
+     not be able to learn whether a credit is already retired either. */
+  it("refuses a wrong holder even once the credit is retired", async () => {
+    await retireCredit(input, ctx);
+    await expect(retireCredit({ ...input, retiredBy: "someone-else" }, ctx)).rejects.toThrow(
+      /does not match the credit's holder/,
+    );
   });
 });

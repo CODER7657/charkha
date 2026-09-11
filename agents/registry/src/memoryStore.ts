@@ -10,18 +10,32 @@ import { DuplicateEvidenceError, type RegistryStore } from "./store.ts";
  * and the double-counting guard is too important to go untested there.
  */
 export const memoryStore = (
-  seed: { matches?: Match[]; evidence?: FieldEvidence[]; verifications?: VerifyEvidenceOutput[] } = {},
+  seed: {
+    matches?: Match[];
+    evidence?: FieldEvidence[];
+    verifications?: VerifyEvidenceOutput[];
+    /** lotId -> producerId, so a test can pin who holds the credit. */
+    lotProducers?: Record<string, string>;
+  } = {},
 ) => {
   const matches = new Map((seed.matches ?? []).map((m) => [m.matchId, m]));
   const evidence = new Map((seed.evidence ?? []).map((e) => [e.evidenceId, e]));
   const verifications = new Map((seed.verifications ?? []).map((v) => [v.evidenceId, v]));
   const credits: CreditRecord[] = [];
+  /* Stands in for the database sequence: monotonic, never reused. */
+  let nextIndex = 0;
   const decisions: DecisionRecord[] = [];
 
   const store: RegistryStore = {
     findMatch: async (matchId) => matches.get(matchId) ?? null,
     findEvidence: async (evidenceId) => evidence.get(evidenceId) ?? null,
     findVerification: async (evidenceId) => verifications.get(evidenceId) ?? null,
+    findLotProducer: async (lotId) => seed.lotProducers?.[lotId] ?? `prod_of_${lotId}`,
+
+    /* An in-memory stand-in for the database sequence: monotonic, never
+       reused, allocated before signing. Same contract, no Postgres. */
+    allocateStatusListIndex: async () => nextIndex++,
+
     findCreditByEvidenceId: async (evidenceId) => credits.find((c) => c.evidenceId === evidenceId) ?? null,
     findCreditById: async (creditId) => credits.find((c) => c.creditId === creditId) ?? null,
     listCredits: async () => [...credits],

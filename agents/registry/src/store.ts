@@ -1,5 +1,5 @@
 import { db, schema, eq, desc, asc } from "@charkha/db";
-import { appendDecision } from "@charkha/db/ledger";
+import { appendDecision, nextStatusListIndex } from "@charkha/db/ledger";
 import { GENESIS_HASH, type CreditRecord, type DecisionRecord, type FieldEvidence, type Match, type VerifyEvidenceOutput } from "@charkha/core";
 
 /* ------------------------------------------------------------------ *
@@ -50,8 +50,20 @@ export type RegistryStore = {
   findVerification: (evidenceId: string) => Promise<VerifyEvidenceOutput | null>;
   findCreditByEvidenceId: (evidenceId: string) => Promise<CreditRecord | null>;
   findCreditById: (creditId: string) => Promise<CreditRecord | null>;
-  /** Issued credits in issuance order. The position in this list is the status-list index. */
+  /** Issued credits in issuance order. */
   listCredits: () => Promise<CreditRecord[]>;
+  /**
+   * The producer of the lot behind a match - who holds the resulting credit.
+   * Null when the lot is gone, which must refuse issuance rather than invent
+   * an owner.
+   */
+  findLotProducer: (lotId: string) => Promise<string | null>;
+  /**
+   * Reserve the next status-list bit, atomically, BEFORE signing. Never a row
+   * count: two concurrent issuances would embed the same index, and retiring
+   * one would then set the bit the other points at.
+   */
+  allocateStatusListIndex: () => Promise<number>;
   /** Throws DuplicateEvidenceError if this evidence already has a credit. */
   insertCredit: (credit: CreditRecord, taskId: string) => Promise<void>;
   /** Retirement is the only state change a credit ever undergoes. */
@@ -72,6 +84,8 @@ const creditFromRow = (row: typeof schema.credits.$inferSelect): CreditRecord =>
   credentialJwt: row.credentialJwt,
   credentialId: row.credentialId,
   issuerDid: row.issuerDid,
+  holder: row.holder,
+  statusListIndex: row.statusListIndex,
 });
 
 export const dbStore = (): RegistryStore => ({
@@ -120,6 +134,17 @@ export const dbStore = (): RegistryStore => ({
     const rows = await db().select().from(schema.credits).orderBy(asc(schema.credits.issuedAt), asc(schema.credits.creditId));
     return rows.map(creditFromRow);
   },
+
+  findLotProducer: async (lotId) => {
+    const [row] = await db()
+      .select({ producerId: schema.residueLots.producerId })
+      .from(schema.residueLots)
+      .where(eq(schema.residueLots.lotId, lotId))
+      .limit(1);
+    return row?.producerId ?? null;
+  },
+
+  allocateStatusListIndex: () => nextStatusListIndex(),
 
   findVerification: async (evidenceId) => {
     const [row] = await db()

@@ -92,6 +92,8 @@ const toCredit = (r: Row | undefined): TraceBundle["credit"] =>
         credentialJwt: String(r["credentialJwt"]),
         credentialId: String(r["credentialId"]),
         issuerDid: String(r["issuerDid"]),
+        holder: String(r["holder"]),
+        statusListIndex: Number(r["statusListIndex"]),
       }
     : null;
 
