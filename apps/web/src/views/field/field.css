@@ -532,3 +532,11 @@
   max-height: 260px;
   overflow: auto;
 }
+
+/* What the lot says the feedstock is, learned from a previous verdict. The
+   operator picks blind otherwise, and only finds out after a full capture. */
+.fc-hint {
+  color: var(--seq);
+  font-size: 11.5px;
+  margin-top: 3px;
+}

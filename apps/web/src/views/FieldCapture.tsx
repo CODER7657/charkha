@@ -5,6 +5,12 @@ import { LANGUAGES, detectLang, rememberLang, translator, type Lang } from "../i
 import { CLASSES, canaryTensor, topClass } from "../../../../agents/verifier/src/protocol.ts";
 import { buildEvidence, newEvidenceId, type BatchForm, type Scored } from "./field/evidence.ts";
 import { EvidenceQueue, type FlushReport } from "./field/queue.ts";
+import {
+  FEEDSTOCKS,
+  lotFeedstockFromVerdict,
+  recallLotFeedstock,
+  rememberLotFeedstock,
+} from "./field/feedstock.ts";
 import { imageToTensor, loadFieldModel, sha256Hex, type FieldModel } from "./field/runtime.ts";
 import "./field/field.css";
 
@@ -19,9 +25,8 @@ import "./field/field.css";
  * nothing else. The exact body is shown on screen before submit.
  */
 
-const FEEDSTOCKS: FeedstockClass[] = ["paddy_straw", "wheat_straw", "sugarcane_trash", "maize_stover", "mixed"];
-
 const LABELS: Record<string, string> = { good_char: "Good char", poor_char: "Poor char", not_char: "Not char" };
+const VERDICT_LABEL: Record<string, string> = { accepted: "Accepted", rejected: "Rejected", needs_review: "Needs review" };
 
 type Photo = { url: string; scored: Scored; ms: number; capturedAt: Date };
 type Gps = { lat: string; lon: string; source: "device" | "manual" | "none" };
@@ -74,6 +79,9 @@ export const FieldCapture = () => {
   const [online, setOnline] = useState(() => navigator.onLine);
   const [pending, setPending] = useState(() => queue.list().length);
   const [flushNote, setFlushNote] = useState("");
+  /* What the lot said for this match, learned from a previous verdict:
+     nothing exposes matchId -> lot, so the first attempt cannot know. */
+  const [lotFeedstock, setLotFeedstock] = useState<FeedstockClass | null>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
 
   /* ---- model: load once, while we still have network ---- */
@@ -128,6 +136,12 @@ export const FieldCapture = () => {
   }, []);
   useEffect(locate, [locate]);
 
+  useEffect(() => {
+    const known = recallLotFeedstock(safeStorage(), matchId);
+    setLotFeedstock(known);
+    if (known) setBatch((b) => (b.feedstock === known ? b : { ...b, feedstock: known }));
+  }, [matchId]);
+
   /* ---- capture: hash + classify, all on device ---- */
   const onFile = async (file: File | undefined) => {
     if (!file || !model || !canvas.current) return;
@@ -181,9 +195,10 @@ export const FieldCapture = () => {
     }
   }, [photo, gps, matchId, batch]);
 
-  const submit = async () => {
+  const submit = async (feedstock?: FeedstockClass) => {
     if (!draft.body) return;
-    const evidence = { ...draft.body, evidenceId: newEvidenceId() };
+    const body = feedstock ? { ...draft.body, batch: { ...draft.body.batch, feedstock } } : draft.body;
+    const evidence = { ...body, evidenceId: newEvidenceId() };
     safeStorage().setItem("charkha.field.matchId", evidence.matchId);
     setBusy(true);
     const res = await queue.submit(evidence, send);
@@ -192,6 +207,13 @@ export const FieldCapture = () => {
     if (res.status === "sent") {
       const r = res.result as { taskId: string; output: VerifyEvidenceOutput };
       setOutcome({ kind: "verdict", taskId: r.taskId, output: r.output });
+      /* The verdict is the only place the lot's feedstock is visible, so
+         keep it: this match then starts from the right value. */
+      const said = lotFeedstockFromVerdict(r.output) ?? (r.output.verdict === "accepted" ? evidence.batch.feedstock : null);
+      if (said) {
+        setLotFeedstock(said);
+        rememberLotFeedstock(safeStorage(), evidence.matchId, said);
+      }
     } else if (res.status === "queued") {
       setOutcome({ kind: "queued", error: res.error });
     } else {
@@ -275,7 +297,7 @@ export const FieldCapture = () => {
               e.target.value = "";
             }}
           />
-          {busy ? "Working…" : photo ? "Retake photo" : "Take photo of the char"}
+          {busy ? "…" : photo ? t("Retake") : t("Take photo")}
         </label>
         <canvas ref={canvas} hidden />
         {photoErr ? <p className="fc-error">{photoErr}</p> : null}
@@ -284,11 +306,11 @@ export const FieldCapture = () => {
             <img src={photo.url} alt="captured char, kept on this device" />
             <div className="fc-scores">
               <p className="fc-top">
-                {LABELS[top.cls]} <span>{(top.p * 100).toFixed(1)}%</span>
+                {t(LABELS[top.cls]!)} <span>{(top.p * 100).toFixed(1)}%</span>
               </p>
               {CLASSES.map((c) => (
                 <div key={c} className="fc-bar">
-                  <span>{LABELS[c]}</span>
+                  <span>{t(LABELS[c]!)}</span>
                   <meter min={0} max={1} value={photo.scored.photo[c]} />
                   <span className="num">{(photo.scored.photo[c] * 100).toFixed(1)}%</span>
                 </div>
@@ -306,33 +328,38 @@ export const FieldCapture = () => {
         <h2>2 · Batch</h2>
         <div className="fc-grid">
           <label>
-            Match id
+            {t("Match ID")}
             <input value={matchId} onChange={(e) => setMatchId(e.target.value)} placeholder="match_…" autoCapitalize="off" />
           </label>
           <label>
-            Feedstock
+            {t("Feedstock")}
             <select value={batch.feedstock} onChange={(e) => setBatch((b) => ({ ...b, feedstock: e.target.value as FeedstockClass }))}>
               {FEEDSTOCKS.map((f) => (
                 <option key={f} value={f}>
-                  {f.replace("_", " ")}
+                  {t(f)}
                 </option>
               ))}
             </select>
+            {lotFeedstock ? (
+              <span className="fc-hint">
+                {t("Lot says")}: {t(lotFeedstock)}
+              </span>
+            ) : null}
           </label>
           <label>
-            Peak temperature (°C)
+            {t("Peak temperature")} (°C)
             <input inputMode="decimal" {...field("pyrolysisPeakTempC")} placeholder="550" />
           </label>
           <label>
-            Residence time (min)
+            {t("Residence time")} ({t("minutes")})
             <input inputMode="decimal" {...field("residenceTimeMin")} placeholder="90" />
           </label>
           <label>
-            Output biochar (t)
+            {t("Output tonnes")}
             <input inputMode="decimal" {...field("outputTonnes")} placeholder="2.5" />
           </label>
           <label>
-            H/C<sub>org</sub> ratio (optional)
+            {t("H/C ratio")} ({t("optional")})
             <input inputMode="decimal" {...field("hcOrgRatio")} placeholder="lab result" />
           </label>
           <label>
@@ -372,7 +399,7 @@ export const FieldCapture = () => {
         {outcome?.kind === "error" ? <p className="fc-error">{outcome.error}</p> : null}
         {outcome?.kind === "verdict" ? (
           <div className={`fc-verdict ${outcome.output.verdict}`}>
-            <p className="fc-top">{outcome.output.verdict.replace("_", " ")}</p>
+            <p className="fc-top">{t(VERDICT_LABEL[outcome.output.verdict] ?? outcome.output.verdict)}</p>
             <ul>
               {outcome.output.reasons.map((r) => (
                 <li key={r}>{r}</li>
@@ -385,6 +412,16 @@ export const FieldCapture = () => {
                 </li>
               ))}
             </ul>
+            {lotFeedstockFromVerdict(outcome.output) && !busy ? (
+              /* Refused only because the feedstock disagreed with the lot.
+                 The photo and its scores are still here - no reshoot. */
+              <button
+                className="fc-submit"
+                onClick={() => void submit(lotFeedstockFromVerdict(outcome.output)!)}
+              >
+                {t("Use the lot\u2019s feedstock and send again")}
+              </button>
+            ) : null}
             <p className="muted">
               task {outcome.taskId} · verified by model {outcome.output.modelVersion} ({short(outcome.output.modelHash)})
             </p>

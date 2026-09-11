@@ -155,6 +155,47 @@ describe("verifyEvidence - classification", () => {
   });
 });
 
+/* ------------------------------------------------------------------ *
+ * issueCredit reads the verifications row, never the request body (#18), and
+ * refuses anything that is not "accepted". So a MISSING row has to mean "not
+ * verified" - if the unhappy paths skipped the insert, a refusal would look
+ * identical to a batch nobody ever submitted.
+ * ------------------------------------------------------------------ */
+describe("the verifications row the registry reads", () => {
+  const cases = [
+    ["accepted", scores({ good_char: 0.92, poor_char: 0.06, not_char: 0.02 })],
+    ["needs_review", scores({ good_char: 0.1, poor_char: 0.85, not_char: 0.05 })],
+    ["rejected", scores({ good_char: 0.02, poor_char: 0.03, not_char: 0.95 })],
+  ] as const;
+
+  it.each(cases)("is written for a %s verdict, not only for accepted", async (verdict, clientScores) => {
+    const { deps, verify } = setup();
+    const out = await verify(evidence({ clientScores }), ctx);
+
+    expect(out.verdict).toBe(verdict);
+    expect(deps.saveVerification).toHaveBeenCalledTimes(1);
+    expect(deps.saveVerification).toHaveBeenCalledWith(out, "task_1");
+  });
+
+  it("carries every field the registry reads off it", async () => {
+    const { deps, verify } = setup();
+    const out = await verify(evidence(), ctx);
+    const [row] = deps.saveVerification.mock.calls[0]!;
+
+    for (const field of ["evidenceId", "verdict", "charQualityScore", "modelHash", "modelVersion", "confidence"] as const) {
+      expect(row[field], `${field} missing from the verifications row`).toBeDefined();
+    }
+    expect(row.modelHash).toBe(out.modelHash);
+    expect(row.charQualityScore).toBe(out.charQualityScore);
+  });
+
+  it("writes no row when the payload was refused before inference - a gap means not verified", async () => {
+    const { deps, verify } = setup();
+    await expect(verify(evidence({}, { pyrolysisPeakTempC: 25_000 }), ctx)).rejects.toBeInstanceOf(MalformedEvidenceError);
+    expect(deps.saveVerification).not.toHaveBeenCalled();
+  });
+});
+
 describe("methodology checks - each passes and fails", () => {
   const byName = (checks: ReturnType<typeof methodologyChecks>, name: string) => checks.find((c) => c.check === name)!;
   const base = evidence().batch;
