@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { db, schema } from "@charkha/db";
-import { readChain } from "@charkha/db/ledger";
+import { readChain, nextStatusListIndex } from "@charkha/db/ledger";
 import type { FieldEvidence, Match, VerifyEvidenceOutput } from "@charkha/core";
 import { issuerFromSeed } from "../did.ts";
 import { dbStore } from "../store.ts";
@@ -177,5 +177,26 @@ describe.skipIf(!canRun)("double counting, against the database", () => {
     ).rejects.toThrow(first.credit.creditId);
 
     expect(await db().select().from(schema.credits)).toHaveLength(1);
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * Status-list index allocation, against the database.
+ *
+ * The credential COMMITS to this number before it is signed. Two credentials
+ * sharing an index means retiring one sets the bit the other points at, so the
+ * retired credit keeps verifying as live under our own signature. Only the
+ * database can make the allocation atomic, so only the database can test it.
+ * ------------------------------------------------------------------ */
+describe.skipIf(!canRun)("status list indices are unique under concurrency", () => {
+  it("gives 20 concurrent allocations 20 distinct indices", async () => {
+    const indices = await Promise.all(Array.from({ length: 20 }, () => nextStatusListIndex()));
+    expect(new Set(indices).size).toBe(20);
+  });
+
+  it("never goes backwards", async () => {
+    const a = await nextStatusListIndex();
+    const b = await nextStatusListIndex();
+    expect(b).toBeGreaterThan(a);
   });
 });

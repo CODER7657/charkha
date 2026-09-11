@@ -193,6 +193,29 @@ export const CreditRecord = z.object({
   credentialJwt: z.string(),
   credentialId: z.string(),
   issuerDid: z.string(),
+  /**
+   * Who holds this credit - the producer of the lot it came from.
+   *
+   * Retirement is terminal, irreversible and globally visible through the
+   * status list, and credit ids are not secret: `GET /api/ledger` and
+   * `GET /api/trace/:taskId` are unauthenticated, so two requests enumerate
+   * every credit in the system. Without an owner, anyone could retire all of
+   * them.
+   *
+   * This is a FIELD CHECK, not proven identity. It stops trivial
+   * enumerate-and-retire and nothing more. Production needs a signed holder
+   * presentation - say that plainly rather than implying otherwise.
+   */
+  holder: z.string().min(1),
+  /**
+   * Bit position this credential commits to in the published status list.
+   *
+   * Allocated atomically from a database sequence BEFORE signing. Deriving it
+   * from a row count lets two concurrent issuances embed the same index, and
+   * then retiring one credit sets the bit the other points at - leaving a
+   * retired credit verifying as live, under our own signature.
+   */
+  statusListIndex: z.number().int().nonnegative(),
 });
 export type CreditRecord = z.infer<typeof CreditRecord>;
 
@@ -205,7 +228,8 @@ export const IssueCreditOutput = z.object({ credit: CreditRecord });
 
 export const RetireCreditInput = z.object({
   creditId: z.string(),
-  retiredBy: z.string(),
+  /** Must equal the credit's `holder`, or retirement is refused. */
+  retiredBy: z.string().min(1),
   reason: z.string().default("voluntary retirement"),
 });
 export const RetireCreditOutput = z.object({ credit: CreditRecord });

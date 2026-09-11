@@ -47,15 +47,20 @@ export const encodeStatusList = (retiredIndices: readonly number[]): string => {
 };
 
 /**
- * A credit's index is its position in issuance order. It is derived rather
- * than stored, which holds because issuance is append-only.
- * TODO: a `status_list_index` column on `credits` would make this explicit -
- * one-line change in packages/db, needs a core PR.
+ * A credit's index is the one it was ISSUED with, allocated atomically from a
+ * database sequence before the credential was signed.
+ *
+ * It used to be derived from position in issuance order. That held only while
+ * issuance was serial: two concurrent issuances both read the same count, both
+ * embedded the same index, and retiring one then set the bit the other
+ * credential pointed at - leaving a retired credit verifying as live under our
+ * own signature. The credential commits to this number, so it has to be read
+ * back, never recomputed.
  */
 export const statusListIndexOf = (credits: readonly CreditRecord[], creditId: string): number => {
-  const index = credits.findIndex((c) => c.creditId === creditId);
-  if (index < 0) throw new Error(`no such credit: ${creditId}`);
-  return index;
+  const credit = credits.find((c) => c.creditId === creditId);
+  if (!credit) throw new Error(`no such credit: ${creditId}`);
+  return credit.statusListIndex;
 };
 
 /** The status list itself, as a Verifiable Credential. */

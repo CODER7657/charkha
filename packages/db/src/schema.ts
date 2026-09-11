@@ -1,4 +1,11 @@
-import { pgTable, text, doublePrecision, integer, timestamp, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, pgSequence, text, doublePrecision, integer, timestamp, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
+
+/**
+ * Status-list bit positions. A sequence, not a row count, because the index
+ * must be allocated atomically BEFORE the credential is signed. Gaps are
+ * fine; collisions are not. Allocate with nextStatusListIndex().
+ */
+export const creditStatusListIndexSeq = pgSequence("credit_status_list_index_seq", { startWith: 0, minValue: 0 });
 
 /* One table per contract in @charkha/core. Keep them in step: if you add a
    field to a contract, add the column in the SAME PR. */
@@ -100,9 +107,18 @@ export const credits = pgTable(
     credentialId: text("credential_id").notNull(),
     issuerDid: text("issuer_did").notNull(),
     taskId: text("task_id"),
+    /* Who holds it. Retirement refuses unless retiredBy matches. */
+    holder: text("holder").notNull(),
+    /* Bit position in the published status list. MUST come from
+       nextStatusListIndex() before signing - a value derived from a row count
+       reproduces the race this column exists to close. */
+    statusListIndex: integer("status_list_index").notNull(),
   },
   (t) => [
     index("credit_status_idx").on(t.status),
+    index("credit_holder_idx").on(t.holder),
+    /* Two credentials must never commit to the same bit. */
+    uniqueIndex("credit_status_list_index_uq").on(t.statusListIndex),
     /* One credit per batch of evidence, ever. The registry checks this before
        it issues, but a check-then-insert cannot hold across concurrent
        requests or multiple registry processes - the database is the only

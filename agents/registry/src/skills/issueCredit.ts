@@ -87,7 +87,16 @@ export const makeIssueCredit =
     const creditId = newId("crd");
     const issuedAt = new Date().toISOString();
     const credentialId = `urn:charkha:credential:${creditId}`;
-    const statusListIndex = (await store.listCredits()).length;
+    /* Allocated atomically, before signing. A row count here would let two
+       concurrent issuances embed the same index, and retiring one would then
+       set the bit the other credential points at. */
+    const statusListIndex = await store.allocateStatusListIndex();
+
+    /* The lot's producer holds the resulting credit. No lot, no owner, no
+       credit - inventing a holder would make the retirement check meaningless. */
+    const holder = await store.findLotProducer(match.lotId);
+    if (!holder)
+      throw new Error(`no lot ${match.lotId} behind match ${match.matchId} - refusing to issue a credit with no holder`);
 
     ctx.progress(`signing credential as ${issuer.did}`);
     const credentialJwt = await signCreditCredential(
@@ -121,6 +130,8 @@ export const makeIssueCredit =
       credentialJwt,
       credentialId,
       issuerDid: issuer.did,
+      holder,
+      statusListIndex,
     };
 
     /* 6. store it, then write exactly one decision.
