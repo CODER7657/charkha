@@ -14,5 +14,8 @@
     "dotenv": "^17.4.2",
     "zod": "^4.6.2",
     "onnxruntime-node": "^1.29.0"
+  },
+  "devDependencies": {
+    "onnxruntime-web": "^1.29.0"
   }
 }
