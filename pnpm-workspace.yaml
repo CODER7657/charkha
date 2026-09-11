@@ -16,6 +16,10 @@ allowBuilds:
   onnxruntime-node: true
   protobufjs: true
 
+minimumReleaseAgeExclude:
+  - fastify@5.12.4
+  - zod@4.6.2
+
 # An unreviewed build script from some new transitive dependency warns instead
 # of failing the whole install. We would rather find out at runtime than lose
 # the build at 3am.

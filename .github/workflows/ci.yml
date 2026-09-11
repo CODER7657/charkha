@@ -97,7 +97,7 @@ jobs:
           node-version: 22
 
       - name: install
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: lint
         run: pnpm exec eslint . --max-warnings 0
