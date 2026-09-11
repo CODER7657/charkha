@@ -20,6 +20,13 @@ export const DEFAULT_DAY_RANGE = 2;
  * https://firms.modaps.eosdis.nasa.gov/api/area/csv/{MAP_KEY}/{SOURCE}/{bbox}/{dayRange}
  * Read-only GET, public data in. Nothing of ours goes out.
  */
+/**
+ * west,south,east,north - four plain numbers. Checked rather than escaped,
+ * because the commas have to survive into the path (see below) and a bbox is
+ * the one part of this URL that comes from configuration.
+ */
+const BBOX_RE = /^-?\d+(?:\.\d+)?(?:,-?\d+(?:\.\d+)?){3}$/;
+
 export const buildFirmsUrl = (args: {
   mapKey: string;
   source?: string;
@@ -28,8 +35,25 @@ export const buildFirmsUrl = (args: {
 }): string => {
   const source = args.source || DEFAULT_SOURCE;
   const bbox = args.bbox || DEFAULT_BBOX;
-  const dayRange = args.dayRange ?? DEFAULT_DAY_RANGE;
-  return `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${encodeURIComponent(args.mapKey)}/${encodeURIComponent(source)}/${encodeURIComponent(bbox)}/${dayRange}`;
+  const dayRange = Math.trunc(args.dayRange ?? DEFAULT_DAY_RANGE);
+
+  /* The bbox goes in LITERALLY, commas and all. percent-encoding them gives
+     HTTP 400 "Invalid area. Expects: [west,south,east,north]" - FIRMS parses
+     this path segment itself and does not decode it first. That bug made every
+     live fetch fail and silently fall through to the cache, which is exactly
+     the kind of failure a fallback hides. Verified against the live endpoint:
+     encoded 400s, literal returns CSV.
+
+     Validated instead of escaped, so a stray "/" in FIRMS_BBOX cannot bend the
+     request onto a different path. */
+  if (!BBOX_RE.test(bbox)) {
+    throw new Error(`FIRMS_BBOX must be "west,south,east,north" as four numbers; got "${bbox}"`);
+  }
+  if (!Number.isFinite(dayRange) || dayRange < 1) {
+    throw new Error(`FIRMS day range must be a positive integer; got "${args.dayRange}"`);
+  }
+
+  return `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${encodeURIComponent(args.mapKey)}/${encodeURIComponent(source)}/${bbox}/${dayRange}`;
 };
 
 /* ---------- CSV ---------- */
