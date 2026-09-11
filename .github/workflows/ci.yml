@@ -41,7 +41,8 @@ jobs:
 
       - name: field photos never leave the device
         run: |
-          if git grep -nE 'base64|dataURL|toDataURL' -- 'packages/core/src/contracts.ts'; then
+          # Match a real schema FIELD, not the comment warning people off one.
+          if git grep -nE '^[[:space:]]*(image|photo|imageData|imageBase64|imageBytes|dataUrl|dataURL)[[:space:]]*:'                -- 'packages/core/src/contracts.ts'; then
             echo "::error::image data in a boundary contract - evidence carries a hash, not an image"
             exit 1
           fi

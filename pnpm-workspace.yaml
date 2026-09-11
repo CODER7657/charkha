@@ -2,3 +2,11 @@ packages:
   - "packages/*"
   - "agents/*"
   - "apps/*"
+
+# pnpm 11 blocks postinstall scripts unless a package is listed here. These
+# three genuinely need theirs: esbuild and onnxruntime-node fetch a native
+# binary, protobufjs generates code. Without this the install errors out.
+onlyBuiltDependencies:
+  - esbuild
+  - onnxruntime-node
+  - protobufjs
