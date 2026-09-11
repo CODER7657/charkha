@@ -83,6 +83,26 @@ export const AuditConsole = () => {
 
   useEffect(() => void load(), [load]);
 
+  /**
+   * A console left open on stage goes stale while the demo happens behind it -
+   * you come back from the phone and the ledger is the one from ten minutes
+   * ago. Refresh when the tab returns to the foreground.
+   *
+   * Never mid-tamper-demo: reloading then would wipe the judge's edit under
+   * their hands and reset the banner they are looking at.
+   */
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === "visible" && !tamperMode) void load();
+    };
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("focus", refresh);
+    return () => {
+      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("focus", refresh);
+    };
+  }, [load, tamperMode]);
+
   /* The whole point: we re-derive every hash here, not on the server. */
   const verifyHere = useCallback(() => setVerdict(verifyChain(chain)), [chain]);
 
