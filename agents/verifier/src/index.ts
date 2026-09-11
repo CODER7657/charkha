@@ -1,8 +1,9 @@
-import "dotenv/config";
-import { buildAgentCard, startAgentServer } from "@charkha/a2a";
+import { loadEnv, buildAgentCard, startAgentServer } from "@charkha/a2a";
 import { VerifyEvidenceInput } from "@charkha/core";
 import { verifyEvidence } from "./skills/verifyEvidence.ts";
 import { loadModel } from "./onnx.ts";
+
+loadEnv();
 
 const PORT = Number(process.env["VERIFIER_PORT"] ?? 4003);
 

@@ -1,12 +1,13 @@
-import "dotenv/config";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
-import { AGENTS, callAgent } from "@charkha/a2a";
+import { loadEnv, AGENTS, callAgent } from "@charkha/a2a";
 import { readChain, verifyLedger } from "@charkha/db/ledger";
 import { verifyChain, type TraceBundle } from "@charkha/core";
 import { buildTrace } from "./trace.ts";
+
+loadEnv();
 
 /* ------------------------------------------------------------------ *
  * OWNER: core (Pavan)
