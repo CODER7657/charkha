@@ -135,7 +135,7 @@ describe("a good day", () => {
 
   it("sends the key and bbox to the documented endpoint", async () => {
     vi.stubEnv("FIRMS_MAP_KEY", "KEY123");
-    vi.stubEnv("FIRMS_SOURCE", "VIIRS_SNPP_NRT");
+    vi.stubEnv("FIRMS_SOURCE", "VIIRS_NOAA20_NRT");
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValue(new Response(SAMPLE, { status: 200 }));
@@ -143,7 +143,7 @@ describe("a good day", () => {
     await loadFirmsCsv({ bbox: "73.8,29.5,77.5,32.2", dayRange: 2 });
 
     const url = String(fetchSpy.mock.calls[0]?.[0]);
-    expect(url).toContain("firms.modaps.eosdis.nasa.gov/api/area/csv/KEY123/VIIRS_SNPP_NRT/");
+    expect(url).toContain("firms.modaps.eosdis.nasa.gov/api/area/csv/KEY123/VIIRS_NOAA20_NRT/");
     expect(fetchSpy.mock.calls[0]?.[1]?.method).toBe("GET");
   });
 });

@@ -13,7 +13,17 @@ import { haversineKm } from "@charkha/core";
 
 /** west,south,east,north - the order the FIRMS area API expects. */
 export const DEFAULT_BBOX = "73.8,29.5,77.5,32.2";
-export const DEFAULT_SOURCE = "VIIRS_SNPP_NRT";
+/**
+ * NOAA-20, not Suomi-NPP. NASA is retiring S-NPP product delivery on
+ * 2026-11-01 ("Data users should transition now to alternative products from
+ * NOAA-21 and NOAA-20"), and a source that stops answering would fall silently
+ * into the cache.
+ *
+ * NOAA-20 over NOAA-21: measured against this bbox on 2026-09-11, NOAA-20
+ * returned 18 lots at the 2-day default against NOAA-21's 12. Same VIIRS
+ * instrument and identical CSV schema, so nothing else changes.
+ */
+export const DEFAULT_SOURCE = "VIIRS_NOAA20_NRT";
 export const DEFAULT_DAY_RANGE = 2;
 
 /**

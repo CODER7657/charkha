@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import fs from "node:fs/promises";
-import { buildFirmsUrl, looksLikeCsv } from "./firms.ts";
+import { DEFAULT_SOURCE, buildFirmsUrl, looksLikeCsv } from "./firms.ts";
 
 /* ------------------------------------------------------------------ *
  * OWNER: Harsh
@@ -136,7 +136,7 @@ export const loadFirmsCsv = async (args: {
       timeoutMs: args.timeoutMs ?? 15_000,
     });
     await writeCache(csv);
-    return { csv, origin: "live", note: `live FIRMS feed, ${source ?? "VIIRS_SNPP_NRT"}, ${dayRange}d` };
+    return { csv, origin: "live", note: `live FIRMS feed, ${source ?? DEFAULT_SOURCE}, ${dayRange}d` };
   } catch (err) {
     return fallback(err instanceof Error ? err.message : String(err));
   }
