@@ -1,5 +1,6 @@
 import { loadEnv, buildAgentCard, startAgentServer } from "@charkha/a2a";
 import { RunMatchingInput, ListUnitsInput } from "@charkha/core";
+import { AGENT_NAME, AGENT_VERSION } from "./card.ts";
 import { runMatching } from "./skills/runMatching.ts";
 import { listUnits } from "./skills/listUnits.ts";
 
@@ -8,7 +9,8 @@ loadEnv();
 const PORT = Number(process.env["MATCHMAKER_PORT"] ?? 4002);
 
 const card = buildAgentCard({
-  name: "Charkha Matchmaker",
+  name: AGENT_NAME,
+  version: AGENT_VERSION,
   description: "Assigns residue lots to nearby conversion units under capacity and radius constraints, debiting transport emissions.",
   url: `${process.env["MATCHMAKER_URL"] ?? `http://localhost:${PORT}`}/a2a`,
   skills: [
