@@ -215,3 +215,49 @@
     height: 84px;
   }
 }
+
+/* ---------- language switch ---------- *
+ * Three scripts, native names only: someone who cannot read the English
+ * label "Hindi" cannot read the word Hindi either.
+ */
+.fc-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.fc-lang {
+  display: flex;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 2px;
+  background: var(--soot);
+  flex: none;
+}
+
+.fc-lang button {
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  /* Devanagari and Gurmukhi need more vertical room than Latin at the same
+     nominal size, and these are tap targets on a phone held in one hand. */
+  padding: 7px 13px;
+  font-size: 14.5px;
+  line-height: 1.5;
+  min-height: 40px;
+  border-radius: 2px;
+}
+
+.fc-lang button:hover:not(.on) {
+  color: var(--ink);
+  background: rgb(238 242 238 / 0.05);
+}
+
+.fc-lang button.on {
+  background: var(--seq-dim);
+  color: var(--seq);
+  font-weight: 600;
+}

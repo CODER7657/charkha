@@ -1,148 +1,288 @@
-/* Shared shell only. Each view owns its own styling below .view - do not
-   restyle another owner's view without asking them first. */
+/* ------------------------------------------------------------------ *
+ * Charkha — shared shell and design tokens.
+ *
+ * The subject is fire over farmland at night: satellite detections of burning
+ * stubble, char, and the green of carbon put back into soil. Ember and
+ * sequestration-green against deep char, on a fine field grid.
+ *
+ * Three scripts render here — Latin, Devanagari and Gurmukhi — so every stack
+ * carries Noto fallbacks. No webfont: a farmer on a 3G connection in a field
+ * should not wait on a font, and rule 4 says no CDN.
+ *
+ * Each view owns its own styling below .view. Do not restyle another owner's
+ * view without asking them first.
+ * ------------------------------------------------------------------ */
+
 :root {
-  --bg: #0f1211;
-  --panel: #171b19;
-  --line: #262d29;
-  --ink: #e8ece9;
-  --muted: #8d9a94;
-  --accent: #46c79a;
-  --hot: #ff7038;
+  /* ground */
+  --void: #080b0a;
+  --soot: #101614;
+  --crust: #18211d;
+  --line: #27322c;
+  --line-soft: #1d2622;
+
+  /* ink */
+  --ink: #eef2ee;
+  --muted: #93a29a;
+  --faint: #67756d;
+
+  /* fire — detections, heat, anything hot or wrong */
+  --ember: #ff5a1f;
+  --ember-dim: #7a2e10;
+  --flame: #ffb02e;
+
+  /* sequestration — carbon put back, anything verified or good */
+  --seq: #2fd39b;
+  --seq-dim: #10493a;
+
+  /* straw */
+  --ochre: #c9922f;
+
+  --radius: 3px;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 10px 28px -16px rgb(0 0 0 / 0.8);
+
+  --sans: "Segoe UI", system-ui, "Noto Sans", "Noto Sans Devanagari", "Noto Sans Gurmukhi",
+    "Nirmala UI", Roboto, sans-serif;
+  --mono: ui-monospace, "JetBrains Mono", Consolas, "Noto Sans Mono", monospace;
+
   color-scheme: dark;
 }
+
 * {
   box-sizing: border-box;
 }
+
 body {
   margin: 0;
-  background: var(--bg);
+  background: var(--void);
   color: var(--ink);
-  font: 15px/1.55 ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+  font: 15px/1.55 var(--sans);
+  -webkit-font-smoothing: antialiased;
 }
+
+/* A faint field grid, the way a bbox looks on a map. Decorative only. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: linear-gradient(rgb(238 242 238 / 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(238 242 238 / 0.022) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
 .shell {
+  position: relative;
+  z-index: 1;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
 }
+
+/* ---------- top bar ---------- */
+
 .topbar {
   display: flex;
   align-items: center;
   gap: 18px;
-  padding: 12px 18px;
+  padding: 11px 18px;
   border-bottom: 1px solid var(--line);
-  background: var(--panel);
+  background: linear-gradient(180deg, var(--soot), var(--void));
+  position: sticky;
+  top: 0;
+  z-index: 20;
 }
+
 .brand {
   display: flex;
   align-items: center;
-  gap: 9px;
-  font-weight: 600;
+  gap: 10px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-size: 15.5px;
 }
+
+/* A spinning wheel — a charkha — rendered as a ring with spokes. */
 .mark {
-  width: 13px;
-  height: 13px;
+  width: 17px;
+  height: 17px;
   border-radius: 50%;
-  border: 2px solid var(--accent);
+  border: 2px solid var(--seq);
+  position: relative;
+  flex: none;
 }
+.mark::before,
+.mark::after {
+  content: "";
+  position: absolute;
+  inset: 2px 50%;
+  border-left: 1.5px solid var(--ember);
+  transform-origin: bottom center;
+}
+.mark::before {
+  transform: rotate(45deg);
+}
+.mark::after {
+  transform: rotate(-45deg);
+}
+
 .tabs {
   display: flex;
-  gap: 4px;
+  gap: 2px;
   margin-left: auto;
 }
+
 .tab {
   background: transparent;
   border: 1px solid transparent;
+  border-radius: var(--radius);
   color: var(--muted);
-  padding: 6px 13px;
-  border-radius: 3px;
+  padding: 7px 14px;
   cursor: pointer;
   font: inherit;
   font-size: 13.5px;
+  font-weight: 500;
+  transition: color 0.12s, background 0.12s;
 }
 .tab:hover {
   color: var(--ink);
+  background: rgb(238 242 238 / 0.04);
 }
 .tab.on {
-  background: var(--bg);
+  background: var(--crust);
   border-color: var(--line);
   color: var(--ink);
 }
+
 .mesh {
   display: flex;
   gap: 5px;
+  padding-left: 4px;
 }
 .dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--muted);
+  background: var(--faint);
 }
 .dot.up {
-  background: var(--accent);
+  background: var(--seq);
+  box-shadow: 0 0 7px var(--seq-dim);
 }
 .dot.down {
-  background: var(--hot);
+  background: var(--ember);
+  box-shadow: 0 0 7px var(--ember-dim);
 }
+
+/* ---------- layout ---------- */
+
 .main {
   flex: 1;
-  padding: 22px 18px 48px;
+  padding: 24px 18px 56px;
 }
+
 .view {
-  max-width: 1100px;
+  max-width: 1140px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
 }
+
 .view-head h1 {
-  font-size: 22px;
-  margin: 0 0 4px;
-  font-weight: 600;
+  font-size: 25px;
+  margin: 0 0 5px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 .view-head p {
   margin: 0;
   color: var(--muted);
   font-size: 14px;
+  max-width: 68ch;
 }
+
 .row {
   display: flex;
   gap: 10px;
   align-items: center;
   flex-wrap: wrap;
 }
+
+/* ---------- controls ---------- */
+
 button {
-  background: var(--panel);
+  background: var(--crust);
   color: var(--ink);
   border: 1px solid var(--line);
-  padding: 8px 14px;
-  border-radius: 3px;
+  padding: 9px 15px;
+  border-radius: var(--radius);
   cursor: pointer;
   font: inherit;
   font-size: 13.5px;
+  font-weight: 500;
+  transition: border-color 0.12s, background 0.12s;
 }
 button:hover:not(:disabled) {
-  border-color: var(--accent);
+  border-color: var(--seq);
+  background: #1d2823;
 }
 button:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 button:focus-visible,
-.tab:focus-visible {
-  outline: 2px solid var(--accent);
+.tab:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--flame);
   outline-offset: 2px;
 }
+
+input,
+select {
+  background: var(--void);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 9px 11px;
+  font: inherit;
+  font-size: 14px;
+  min-width: 0;
+}
+input:focus,
+select:focus {
+  border-color: var(--seq);
+  outline: none;
+}
+
 .muted {
   color: var(--muted);
   font-size: 13px;
   margin: 0;
 }
+.err {
+  color: var(--ember);
+  font-size: 13px;
+  margin: 0;
+}
+
 .placeholder {
   border: 1px dashed var(--line);
-  border-radius: 3px;
-  padding: 40px 20px;
+  border-radius: var(--radius);
+  padding: 42px 20px;
   text-align: center;
-  color: var(--muted);
-  font-family: ui-monospace, Consolas, monospace;
+  color: var(--faint);
+  font-family: var(--mono);
   font-size: 12.5px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
 }

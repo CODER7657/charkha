@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FeedstockClass, FieldEvidence, VerifyEvidenceOutput } from "@charkha/core";
 import { api } from "../api.ts";
+import { LANGUAGES, detectLang, rememberLang, translator, type Lang } from "../i18n.ts";
 import { CLASSES, canaryTensor, topClass } from "../../../../agents/verifier/src/protocol.ts";
 import { buildEvidence, newEvidenceId, type BatchForm, type Scored } from "./field/evidence.ts";
 import { EvidenceQueue, type FlushReport } from "./field/queue.ts";
@@ -49,6 +50,11 @@ const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const short = (h: string) => `${h.slice(0, 10)}…${h.slice(-6)}`;
 
 export const FieldCapture = () => {
+  /* The users this screen is for are standing in a field in Punjab or
+     Haryana. English-only here is not a missing nicety, it is the product
+     not working for the people it is for. */
+  const [lang, setLang] = useState<Lang>(detectLang);
+  const t = useMemo(() => translator(lang), [lang]);
   const [model, setModel] = useState<FieldModel | null>(null);
   const [modelErr, setModelErr] = useState("");
   const [gpuNote, setGpuNote] = useState("");
@@ -201,18 +207,43 @@ export const FieldCapture = () => {
 
   return (
     <div className="view field">
-      <div className="view-head">
-        <h1>Field capture</h1>
-        <p>Inference runs on this device. The photo is never uploaded, only its hash and the scores.</p>
+      <div className="view-head fc-head">
+        <div>
+          <h1>{t("Field capture")}</h1>
+          <p>
+            {t(
+              "Inference runs on this device. The photo is never uploaded, only its hash and the scores.",
+            )}
+          </p>
+        </div>
+        {/* Native names only. Someone who cannot read the English label cannot
+            read "Hindi" either. */}
+        <div className="fc-lang" role="group" aria-label="Language">
+          {LANGUAGES.map((l) => (
+            <button
+              key={l.code}
+              type="button"
+              lang={l.code}
+              className={l.code === lang ? "on" : ""}
+              aria-pressed={l.code === lang}
+              onClick={() => {
+                setLang(l.code);
+                rememberLang(l.code);
+              }}
+            >
+              {l.native}
+            </button>
+          ))}
+        </div>
       </div>
 
       <section className="fc-status" aria-live="polite">
         <div>
-          <span className={online ? "fc-pill ok" : "fc-pill off"}>{online ? "online" : "offline"}</span>
+          <span className={online ? "fc-pill ok" : "fc-pill off"}>{online ? t("Online") : t("Offline")}</span>
           {model ? <span className="fc-pill ok">{model.backend === "webgpu" ? "WebGPU" : "wasm"}</span> : null}
           {pending ? (
             <button className="fc-pill warn" onClick={() => void flush()}>
-              {pending} queued · retry
+              {pending} {t("Waiting to send")}
             </button>
           ) : null}
         </div>
@@ -221,7 +252,7 @@ export const FieldCapture = () => {
             ? `model failed to load: ${modelErr}`
             : model
               ? `model ${model.version} · sha256 ${short(model.hash)}`
-              : "loading model…"}
+              : t("Loading model")}
         </p>
         {gpuNote ? <p className="muted">{gpuNote}</p> : null}
         {flushNote ? <p className="muted">{flushNote}</p> : null}
@@ -301,16 +332,16 @@ export const FieldCapture = () => {
             <input inputMode="decimal" {...field("hcOrgRatio")} placeholder="lab result" />
           </label>
           <label>
-            Latitude
+            {t("Latitude")}
             <input inputMode="decimal" value={gps.lat} onChange={(e) => setGps((g) => ({ ...g, lat: e.target.value, source: "manual" }))} />
           </label>
           <label>
-            Longitude
+            {t("Longitude")}
             <input inputMode="decimal" value={gps.lon} onChange={(e) => setGps((g) => ({ ...g, lon: e.target.value, source: "manual" }))} />
           </label>
         </div>
         <div className="row">
-          <button onClick={locate}>Use device location</button>
+          <button onClick={locate}>{t("Use device location")}</button>
           <span className="muted">{gps.source === "device" ? "from device GPS" : gps.source === "manual" ? "entered by hand" : ""}</span>
         </div>
       </section>
@@ -319,14 +350,14 @@ export const FieldCapture = () => {
         <h2>3 · Submit</h2>
         <details>
           <summary>
-            Exactly what leaves this device
+            {t("This is what leaves your phone")}
             {draft.body ? ` · ${new Blob([JSON.stringify(draft.body)]).size} bytes, no image` : ""}
           </summary>
           <pre>{draft.body ? JSON.stringify(draft.body, null, 2) : draft.error}</pre>
         </details>
         <div className="row">
           <button className="fc-submit" disabled={!draft.body || busy} onClick={() => void submit()}>
-            Submit evidence
+            {t("Submit")}
           </button>
           {!draft.body ? <span className="muted">{draft.error}</span> : null}
         </div>
