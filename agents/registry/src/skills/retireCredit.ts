@@ -1,24 +1,47 @@
 import type { SkillContext } from "@charkha/a2a";
 import type { z } from "zod";
-import { RetireCreditInput, type RetireCreditOutput } from "@charkha/core";
+import type { RetireCreditInput, RetireCreditOutput } from "@charkha/core";
+import { dbStore, type RegistryStore } from "../store.ts";
 
 /**
  * OWNER: Ayush
  *
- * Retire a credit. Retirement is terminal and must be idempotent: retiring an
- * already-retired credit returns the same record, it does not error and it
- * does not append a second decision.
+ * Retire a credit. Terminal and idempotent: retiring an already-retired
+ * credit returns the same record, does not error, and does NOT append a
+ * second decision - the ledger must not claim a retirement happened twice.
  *
- * Expose the retirement state as a status list the credential points at, so a
- * holder can check "is this still live" without asking our API for permission.
- * That is what stops double-selling, and it is the answer to "why no
- * blockchain" - portable, offline-checkable proof without consensus.
+ * The retirement itself is published through the status list the credential
+ * points at (see statusList.ts), so a holder can check "is this still live"
+ * without asking us.
  */
-export const retireCredit = async (
-  input: z.infer<typeof RetireCreditInput>,
-  ctx: SkillContext,
-): Promise<z.infer<typeof RetireCreditOutput>> => {
-  ctx.progress("TODO(ayush): flip status to retired + update status list");
-  void input;
-  throw new Error("retireCredit not implemented");
-};
+export const makeRetireCredit =
+  (store: RegistryStore) =>
+  async (
+    input: z.infer<typeof RetireCreditInput>,
+    ctx: SkillContext,
+  ): Promise<z.infer<typeof RetireCreditOutput>> => {
+    const existing = await store.findCreditById(input.creditId);
+    if (!existing) throw new Error(`no such credit: ${input.creditId}`);
+
+    /* Already retired: hand back the same record and touch nothing. */
+    if (existing.status === "retired") {
+      ctx.progress(`${input.creditId} is already retired - nothing to do`);
+      return { credit: existing };
+    }
+
+    ctx.progress(`retiring ${input.creditId} for ${input.retiredBy}`);
+    const credit = await store.markRetired(input.creditId);
+
+    await store.appendDecision({
+      taskId: ctx.taskId,
+      agent: "registry",
+      agentCardId: "charkha-registry",
+      action: "retireCredit",
+      input,
+      output: credit,
+    });
+
+    return { credit };
+  };
+
+export const retireCredit = makeRetireCredit(dbStore());

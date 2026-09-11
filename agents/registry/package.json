@@ -15,7 +15,7 @@
     "dotenv": "^17.4.2",
     "zod": "^4.6.2",
     "did-jwt-vc": "^4.0.16",
-    "did-resolver": "^5.0.1",
+    "did-resolver": "^4.1.0",
     "key-did-resolver": "^4.0.0",
     "@noble/curves": "^2.4.0"
   }

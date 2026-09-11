@@ -2,6 +2,9 @@ import { loadEnv, buildAgentCard, startAgentServer } from "@charkha/a2a";
 import { IssueCreditInput, RetireCreditInput } from "@charkha/core";
 import { issueCredit } from "./skills/issueCredit.ts";
 import { retireCredit } from "./skills/retireCredit.ts";
+import { getIssuer } from "./did.ts";
+import { dbStore } from "./store.ts";
+import { STATUS_LIST_ID, signStatusListCredential } from "./statusList.ts";
 
 loadEnv();
 
@@ -23,5 +26,28 @@ await startAgentServer({
   skills: {
     issueCredit: { input: IssueCreditInput, run: issueCredit },
     retireCredit: { input: RetireCreditInput, run: retireCredit },
+  },
+  /* Public, unauthenticated on purpose: a credential holder must be able to
+     check whether a credit is still live without an account with us. */
+  routes: (app) => {
+    app.get("/did", (_req, res) => {
+      try {
+        res.json({ did: getIssuer().did });
+      } catch (err) {
+        res.status(503).json({ error: err instanceof Error ? err.message : String(err) });
+      }
+    });
+
+    app.get(`/status/${STATUS_LIST_ID}`, (_req, res) => {
+      void (async () => {
+        try {
+          const credits = await dbStore().listCredits();
+          const jwt = await signStatusListCredential(credits, getIssuer());
+          res.type("application/jwt").send(jwt);
+        } catch (err) {
+          res.status(503).json({ error: err instanceof Error ? err.message : String(err) });
+        }
+      })();
+    });
   },
 });

@@ -1,10 +1,15 @@
-import { randomUUID, createHash } from "node:crypto";
+import { sha256, toHex } from "./sha256.ts";
 
 /** Prefixed, sortable-enough ids. Keep prefixes stable - they show up in the demo UI. */
-export const newId = (prefix: string): string => `${prefix}_${randomUUID().replace(/-/g, "").slice(0, 20)}`;
+export const newId = (prefix: string): string =>
+  `${prefix}_${globalThis.crypto.randomUUID().replace(/-/g, "").slice(0, 20)}`;
 
+/**
+ * One hash function for the whole system, server and browser alike. The audit
+ * console re-derives the chain client-side, so this cannot be node-only.
+ */
 export const sha256Hex = (input: string | Uint8Array): string =>
-  createHash("sha256").update(input).digest("hex");
+  toHex(sha256(typeof input === "string" ? new TextEncoder().encode(input) : input));
 
 /**
  * Canonical JSON: object keys sorted recursively so that the same logical
