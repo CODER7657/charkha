@@ -1,5 +1,10 @@
-import "dotenv/config";
+import { loadEnv } from "@charkha/a2a";
 import { db, schema } from "@charkha/db";
+
+// `dotenv/config` resolves .env against cwd, and dotenv is not a dependency
+// of the workspace root at all - so `pnpm seed` failed to start on a fresh
+// clone. loadEnv finds the .env next to pnpm-workspace.yaml from anywhere.
+loadEnv();
 
 /**
  * Seed conversion units so the operator map is never empty on first load.
