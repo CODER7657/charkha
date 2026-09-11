@@ -17,6 +17,22 @@ export const DEFAULT_SOURCE = "VIIRS_SNPP_NRT";
 export const DEFAULT_DAY_RANGE = 2;
 
 /**
+ * The bbox goes into the path with RAW commas. Percent-encoding them gives
+ * `Invalid area. Expects: [west,south,east,north].` and an HTTP 400, which
+ * the feed quietly treats as "live unavailable" and falls back to the
+ * bundled sample - so the live feed silently never runs.
+ *
+ * Nothing here is injectable: the four parts must parse as numbers or we
+ * refuse to build a URL at all.
+ */
+const bboxPath = (raw: string): string => {
+  const parts = raw.split(",").map((p) => p.trim());
+  if (parts.length !== 4 || parts.some((p) => p === "" || !Number.isFinite(Number(p))))
+    throw new Error(`FIRMS_BBOX must be four numbers "west,south,east,north" - got "${raw}"`);
+  return parts.join(",");
+};
+
+/**
  * https://firms.modaps.eosdis.nasa.gov/api/area/csv/{MAP_KEY}/{SOURCE}/{bbox}/{dayRange}
  * Read-only GET, public data in. Nothing of ours goes out.
  */
@@ -29,7 +45,7 @@ export const buildFirmsUrl = (args: {
   const source = args.source || DEFAULT_SOURCE;
   const bbox = args.bbox || DEFAULT_BBOX;
   const dayRange = args.dayRange ?? DEFAULT_DAY_RANGE;
-  return `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${encodeURIComponent(args.mapKey)}/${encodeURIComponent(source)}/${encodeURIComponent(bbox)}/${dayRange}`;
+  return `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${encodeURIComponent(args.mapKey)}/${encodeURIComponent(source)}/${bboxPath(bbox)}/${dayRange}`;
 };
 
 /* ---------- CSV ---------- */

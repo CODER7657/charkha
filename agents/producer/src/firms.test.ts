@@ -49,9 +49,20 @@ const csv = (...rows: string[]): string => [HEADER, ...rows].join("\n");
 describe("FIRMS url", () => {
   it("puts the key, source, bbox and day range in the documented order", () => {
     const url = buildFirmsUrl({ mapKey: "KEY123", source: "VIIRS_SNPP_NRT", bbox: "73.8,29.5,77.5,32.2", dayRange: 2 });
+    // RAW commas. FIRMS answers %2C with `Invalid area.` and HTTP 400, which
+    // the feed treats as "live unavailable" - so encoding them means the live
+    // feed silently never runs and we always serve the bundled sample.
     expect(url).toBe(
-      "https://firms.modaps.eosdis.nasa.gov/api/area/csv/KEY123/VIIRS_SNPP_NRT/73.8%2C29.5%2C77.5%2C32.2/2",
+      "https://firms.modaps.eosdis.nasa.gov/api/area/csv/KEY123/VIIRS_SNPP_NRT/73.8,29.5,77.5,32.2/2",
     );
+    expect(url).not.toContain("%2C");
+  });
+
+  it("refuses a bbox that is not four numbers", () => {
+    // The bbox lands in the path unencoded, so it has to be numbers or nothing.
+    expect(() => buildFirmsUrl({ mapKey: "K", bbox: "73.8,29.5,77.5" })).toThrow(/four numbers/);
+    expect(() => buildFirmsUrl({ mapKey: "K", bbox: "73.8,29.5,77.5,../../etc" })).toThrow(/four numbers/);
+    expect(() => buildFirmsUrl({ mapKey: "K", bbox: "" })).not.toThrow(); // empty falls back to the default
   });
 
   it("falls back to the Punjab/Haryana defaults", () => {
