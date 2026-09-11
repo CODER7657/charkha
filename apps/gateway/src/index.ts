@@ -2,7 +2,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
-import { loadEnv, AGENTS, callAgent } from "@charkha/a2a";
+import { loadEnv, AGENTS, callAgent, AgentRequestError } from "@charkha/a2a";
 import { readChain, verifyLedger } from "@charkha/db/ledger";
 import { verifyChain, type TraceBundle } from "@charkha/core";
 import { buildTrace } from "./trace.ts";
@@ -22,6 +22,22 @@ const app = Fastify({ logger: { level: "info" } });
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const webDist = path.resolve(here, "../../web/dist");
+
+/* A request an agent refused because of its own contents is the caller's
+   problem, not an outage. 500 for a bad payload sends whoever is debugging to
+   the server logs for something that is in their request. */
+app.setErrorHandler((err, _req, reply) => {
+  if (err instanceof AgentRequestError) {
+    app.log.info({ agent: err.agent, skill: err.skill }, "refused");
+    return reply.code(400).send({ error: "refused", agent: err.agent, skill: err.skill, message: err.message });
+  }
+  app.log.error({ err }, "unhandled");
+  const status = typeof (err as { statusCode?: unknown }).statusCode === "number"
+    ? (err as { statusCode: number }).statusCode
+    : 500;
+  const message = err instanceof Error ? err.message : "unexpected error";
+  return reply.code(status).send({ error: "internal", message });
+});
 
 app.get("/api/health", async () => {
   const check = async (name: keyof typeof AGENTS) => {

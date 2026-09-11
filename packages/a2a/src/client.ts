@@ -10,6 +10,30 @@ import { mintAgentToken } from "./auth.ts";
  * still real - we read the terminal task state off the response.
  * ------------------------------------------------------------------ */
 
+/**
+ * An agent refused the request because of what was IN it.
+ *
+ * The gateway maps this to 400. Returning 500 for a caller's own malformed or
+ * refused payload sends whoever is debugging to the server logs for a problem
+ * that is in their request, and makes a working refusal look like an outage.
+ */
+export class AgentRequestError extends Error {
+  readonly agent: string;
+  readonly skill: string;
+  constructor(agent: string, skill: string, detail: string) {
+    super(`${agent}.${skill}: ${detail}`);
+    this.name = "AgentRequestError";
+    this.agent = agent;
+    this.skill = skill;
+  }
+}
+
+/** Refusals that are the caller's fault, not ours. */
+const isCallerError = (text: string): boolean =>
+  /invalid input|refusing to issue|refusing to retire|already been credited|no verification on record|does not match|no such credit|no lot /i.test(
+    text,
+  );
+
 export type AgentTarget = { name: string; baseUrl: string };
 
 export const AGENTS = {
@@ -84,7 +108,11 @@ export const callAgent = async <T>(
     const payload = (await res.json()) as RpcResult;
     if (payload.error) throw new Error(`${target.name}: ${payload.error.message ?? "rpc error"}`);
     const { taskId, output, failed, text } = extract(payload);
-    if (failed) throw new Error(`${target.name}.${skill} failed: ${text || "no detail"}`);
+    if (failed) {
+      const detail = text || "no detail";
+      if (isCallerError(detail)) throw new AgentRequestError(target.name, skill, detail);
+      throw new Error(`${target.name}.${skill} failed: ${detail}`);
+    }
     return { taskId, output: output as T };
   } finally {
     clearTimeout(timer);
