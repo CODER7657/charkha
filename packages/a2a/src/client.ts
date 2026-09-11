@@ -28,9 +28,16 @@ export class AgentRequestError extends Error {
   }
 }
 
-/** Refusals that are the caller's fault, not ours. */
-const isCallerError = (text: string): boolean =>
-  /invalid input|refusing to issue|refusing to retire|already been credited|no verification on record|does not match|no such credit|no lot /i.test(
+/**
+ * Refusals that are the caller's fault, not ours.
+ *
+ * Exported so the agents can pin their own refusals to it - this matches on
+ * message text, so a reworded refusal can silently fall out of the pattern and
+ * start returning 500. See agents/registry/src/skills/refusals.test.ts, which
+ * provokes every refusal for real and fails if one stops classifying.
+ */
+export const isCallerError = (text: string): boolean =>
+  /invalid input|refusing to (issue|retire)|already been credited|no verification on record|does not match|belongs to match|no such |no lot /i.test(
     text,
   );
 
