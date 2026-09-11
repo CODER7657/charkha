@@ -181,7 +181,10 @@ export const startAgentServer = async (opts: AgentServerOptions): Promise<void> 
   const handler = new DefaultRequestHandler(opts.card, new InMemoryTaskStore(), new SkillExecutor(opts.skills));
 
   // Agent Card is public on purpose - that is how discovery works.
-  app.get("/.well-known/agent-card.json", agentCardHandler({ agentCardProvider: async () => opts.card }));
+  // Mount with app.use, not app.get: the SDK handler matches on its own path
+  // once mounted, and the request handler already satisfies the provider
+  // contract via getAgentCard().
+  app.use("/.well-known/agent-card.json", agentCardHandler({ agentCardProvider: handler }));
 
   app.post(
     "/a2a",
