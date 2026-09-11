@@ -5,8 +5,8 @@
  * stubble, char, and the green of carbon put back into soil. Ember and
  * sequestration-green against deep char, on a fine field grid.
  *
- * Three scripts render here — Latin, Devanagari and Gurmukhi — so every stack
- * carries Noto fallbacks. No webfont: a farmer on a 3G connection in a field
+ * Four scripts render here — Latin, Devanagari, Gurmukhi and Gujarati — so every
+ * stack carries Noto fallbacks. No webfont: a farmer on a 3G connection in a field
  * should not wait on a font, and rule 4 says no CDN.
  *
  * Each view owns its own styling below .view. Do not restyle another owner's
@@ -42,7 +42,7 @@
   --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 10px 28px -16px rgb(0 0 0 / 0.8);
 
   --sans: "Segoe UI", system-ui, "Noto Sans", "Noto Sans Devanagari", "Noto Sans Gurmukhi",
-    "Nirmala UI", Roboto, sans-serif;
+    "Noto Sans Gujarati", "Nirmala UI", Roboto, sans-serif;
   --mono: ui-monospace, "JetBrains Mono", Consolas, "Noto Sans Mono", monospace;
 
   color-scheme: dark;

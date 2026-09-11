@@ -2,15 +2,16 @@
  * Language.
  *
  * The problem statement names farms and facility operators as the users. In
- * Punjab and Haryana that is overwhelmingly Punjabi and Hindi speakers, and
- * the Field view is the only screen those users actually touch - they are
+ * Punjab and Haryana that is overwhelmingly Punjabi and Hindi speakers; in
+ * Gujarat, where sugarcane and cotton residue burn too, it is Gujarati. The
+ * Field view is the only screen those users actually touch - they are
  * standing in a field with a phone, photographing char.
  *
  * An English-only capture screen is not a localisation nicety we skipped; it
  * is the product not working for the people it is for.
  *
  * Deliberately dependency-free: a typed lookup, no i18n framework. We have
- * three languages and about forty strings. A library would be more code than
+ * four languages and about forty strings. A library would be more code than
  * the thing it replaces.
  *
  * Operator and Audit stay English on purpose - their users are dispatchers,
@@ -22,6 +23,7 @@ export const LANGUAGES = [
   { code: "en", label: "English", native: "English" },
   { code: "hi", label: "Hindi", native: "हिन्दी" },
   { code: "pa", label: "Punjabi", native: "ਪੰਜਾਬੀ" },
+  { code: "gu", label: "Gujarati", native: "ગુજરાતી" },
 ] as const;
 
 export type Lang = (typeof LANGUAGES)[number]["code"];
@@ -118,7 +120,51 @@ const PA: Dict = {
   "mixed": "ਰਲਿਆ-ਮਿਲਿਆ",
 };
 
-const DICTS: Record<Lang, Dict> = { en: {}, hi: HI, pa: PA };
+const GU: Dict = {
+  "Field capture": "ફીલ્ડ કૅપ્ચર",
+  "Inference runs on this device. The photo is never uploaded, only its hash and the scores.":
+    "ઓળખ આ ફોન પર જ થાય છે. ફોટો ક્યારેય અપલોડ થતો નથી — ફક્ત તેનો હૅશ અને સ્કોર મોકલવામાં આવે છે.",
+  "Take photo": "ફોટો લો",
+  "Retake": "ફરીથી લો",
+  "Capture evidence": "પુરાવો નોંધો",
+  "Submit": "મોકલો",
+  "Use device location": "ફોનનું લોકેશન લો",
+  "Location": "જગ્યા",
+  "Latitude": "અક્ષાંશ",
+  "Longitude": "રેખાંશ",
+  "Match ID": "મેચ આઈડી",
+  "Batch details": "બૅચની વિગતો",
+  "Peak temperature": "મહત્તમ તાપમાન",
+  "Residence time": "સમય",
+  "Feedstock": "કાચો માલ",
+  "Output tonnes": "ઉત્પાદન (ટન)",
+  "H/C ratio": "H/C ગુણોત્તર",
+  optional: "વૈકલ્પિક",
+  minutes: "મિનિટ",
+  tonnes: "ટન",
+  "Good char": "સારો ચાર",
+  "Poor char": "નબળો ચાર",
+  "Not char": "ચાર નથી",
+  Accepted: "સ્વીકૃત",
+  Rejected: "અસ્વીકૃત",
+  "Needs review": "તપાસ બાકી",
+  Offline: "ઑફલાઇન",
+  Online: "ઑનલાઇન",
+  "Waiting to send": "મોકલવાનું બાકી",
+  Sent: "મોકલી દીધું",
+  "This is what leaves your phone": "તમારા ફોનમાંથી ફક્ત આટલું જ જાય છે",
+  "No photo is included.": "કોઈ ફોટો મોકલવામાં આવતો નથી.",
+  Result: "પરિણામ",
+  "Loading model": "મોડેલ લોડ થઈ રહ્યું છે",
+  "Model ready": "મોડેલ તૈયાર",
+  paddy_straw: "ડાંગરની પરાળ",
+  wheat_straw: "ઘઉંનું પરાળ",
+  sugarcane_trash: "શેરડીના પાન",
+  maize_stover: "મકાઈનો સાંઠો",
+  mixed: "મિશ્ર",
+};
+
+const DICTS: Record<Lang, Dict> = { en: {}, hi: HI, pa: PA, gu: GU };
 
 const STORAGE_KEY = "charkha.lang";
 
@@ -132,6 +178,7 @@ export const detectLang = (): Lang => {
   }
   const nav = typeof navigator === "undefined" ? "" : navigator.language.toLowerCase();
   if (nav.startsWith("pa")) return "pa";
+  if (nav.startsWith("gu")) return "gu";
   if (nav.startsWith("hi")) return "hi";
   return "en";
 };
