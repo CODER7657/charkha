@@ -261,3 +261,21 @@
   color: var(--seq);
   font-weight: 600;
 }
+
+.fc-langwrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: none;
+}
+
+/* Labelled in all four languages at once, so whoever picks up the phone can
+   find it without already reading one of them. */
+.fc-langlabel {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+  text-align: right;
+}
