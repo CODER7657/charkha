@@ -74,8 +74,12 @@ export const statusListCredentialPayload = (credits: readonly CreditRecord[], is
     id: `${statusListUrl()}#list`,
     type: "BitstringStatusList",
     statusPurpose: "revocation",
+    /* The bit a holder checks is the one their credential names, which is the
+       index allocated at issuance - never the row's position here. Position
+       stops matching the moment anything is issued in parallel or a refusal
+       burns a sequence value, and then a retired credit reads as live. */
     encodedList: encodeStatusList(
-      credits.flatMap((credit, index) => (credit.status === "retired" ? [index] : [])),
+      credits.flatMap((credit) => (credit.status === "retired" ? [credit.statusListIndex] : [])),
     ),
   },
 });
