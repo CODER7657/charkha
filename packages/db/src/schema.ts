@@ -1,4 +1,4 @@
-import { pgTable, text, doublePrecision, integer, timestamp, jsonb, index } from "drizzle-orm/pg-core";
+import { pgTable, text, doublePrecision, integer, timestamp, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
 
 /* One table per contract in @charkha/core. Keep them in step: if you add a
    field to a contract, add the column in the SAME PR. */
@@ -101,7 +101,14 @@ export const credits = pgTable(
     issuerDid: text("issuer_did").notNull(),
     taskId: text("task_id"),
   },
-  (t) => [index("credit_status_idx").on(t.status)],
+  (t) => [
+    index("credit_status_idx").on(t.status),
+    /* One credit per batch of evidence, ever. The registry checks this before
+       it issues, but a check-then-insert cannot hold across concurrent
+       requests or multiple registry processes - the database is the only
+       place this guarantee can actually live. */
+    uniqueIndex("credit_evidence_uq").on(t.evidenceId),
+  ],
 );
 
 /** Append-only. Never UPDATE or DELETE a row here - that is the whole point. */
