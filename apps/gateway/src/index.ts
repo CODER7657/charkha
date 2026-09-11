@@ -92,4 +92,20 @@ try {
   app.log.warn("web/dist not built yet - run: pnpm build:web");
 }
 
-await app.listen({ port: PORT, host: "0.0.0.0" });
+/* Dual-stack on purpose.
+ *
+ * Binding 0.0.0.0 is IPv4-only, and Node resolves "localhost" to ::1 first on
+ * most systems - so any server-side fetch("http://localhost:4000/...") failed
+ * with ECONNREFUSED ::1:4000 while the browser and Docker were perfectly fine.
+ * Every caller having to remember 127.0.0.1 is the wrong fix; the gateway
+ * accepting both is the right one.
+ *
+ * :: with ipv6Only off also accepts IPv4-mapped connections, so this is a
+ * superset of the old behaviour. Falls back where IPv6 is unavailable in the
+ * container, rather than refusing to start. */
+try {
+  await app.listen({ port: PORT, host: "::", ipv6Only: false });
+} catch (err) {
+  app.log.warn({ err }, "could not bind IPv6, falling back to IPv4 only");
+  await app.listen({ port: PORT, host: "0.0.0.0" });
+}
