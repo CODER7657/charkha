@@ -156,6 +156,9 @@ record pointing at the one before.
    been open since before the run.
 6. **Blank field-capture screen.** Not https, so no secure context. There is no
    workaround; it has to be the real hostname with TLS.
+7. **`refusing to retire …: retiredBy does not match the credit's holder`.** You
+   made up a retiring party. It has to be the credit's `holder`. This is a field
+   check rather than proven identity, and we say so on stage.
 
 ## What is honestly simulated
 
@@ -163,6 +166,8 @@ Say these before a judge finds them:
 
 - retirement checks a `retiredBy` field against the credit's holder — a field
   check, not a proven identity. Production needs a signed holder presentation.
+  The holder is the lot's *producer*, so this is a producer retiring their own
+  credit rather than an offtaker retiring a purchased one.
 - the in-memory queue sits behind a broker-shaped interface; there is no Kafka.
 - the char-quality model is a baseline trained on a small set, not a production
   classifier. The dual-runtime canary proves the *same* model ran in both places,
