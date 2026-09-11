@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      '@charkha/a2a':
+        specifier: workspace:*
+        version: link:packages/a2a
       '@charkha/core':
         specifier: workspace:*
         version: link:packages/core
