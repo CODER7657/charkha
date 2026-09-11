@@ -5,19 +5,117 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  verify:
+  # Fast, no-install checks. Runs in seconds and catches the things that would
+  # actually hurt us: a leaked key, a committed .env, an image crossing the wire.
+  guard:
+    name: guard
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: no .env committed
+        run: |
+          if git ls-files | grep -E '(^|/)\.env$|(^|/)\.env\.(local|production)$'; then
+            echo "::error::a .env file is tracked - remove it and rotate anything that was in it"
+            exit 1
+          fi
+          echo "ok - no .env tracked"
+
+      - name: no private keys or obvious secrets
+        run: |
+          if git grep -nIE 'BEGIN (RSA|EC|OPENSSH|PGP) PRIVATE KEY' -- . ; then
+            echo "::error::a private key is committed"
+            exit 1
+          fi
+          if git grep -nIE '(FIRMS_MAP_KEY|REGISTRY_DID_SEED|A2A_JWT_SECRET)[[:space:]]*[=:][[:space:]]*["'"'"']?[A-Za-z0-9_-]{16,}' \
+               -- . ':!.env.example' ':!.github/workflows'; then
+            echo "::error::a real secret value looks hard-coded - move it to .env"
+            exit 1
+          fi
+          echo "ok - no secrets found"
+
+      - name: field photos never leave the device
+        run: |
+          if git grep -nE 'base64|dataURL|toDataURL' -- 'packages/core/src/contracts.ts'; then
+            echo "::error::image data in a boundary contract - evidence carries a hash, not an image"
+            exit 1
+          fi
+          echo "ok - contracts carry hashes, not images"
+
+      - name: no third-party inference endpoints
+        run: |
+          if git grep -nIE 'api\.openai\.com|generativelanguage\.googleapis|api\.anthropic\.com|huggingface\.co/api' \
+               -- 'packages' 'agents' 'apps'; then
+            echo "::error::a hosted AI endpoint appeared - all inference stays local"
+            exit 1
+          fi
+          echo "ok - inference is local"
+
+  verify:
+    name: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # No `version:` here on purpose - packageManager in package.json is the
+      # single source of truth. Setting both is an error.
       - uses: pnpm/action-setup@v4
-        with: { version: 11 }
+
       - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: pnpm }
-      - run: pnpm install --no-frozen-lockfile
+        with:
+          node-version: 22
+
+      - name: install
+        run: pnpm install --no-frozen-lockfile
+
+      - name: lint
+        run: pnpm exec eslint . --max-warnings 0
+
       - name: typecheck
         run: pnpm exec tsc --noEmit -p tsconfig.base.json
+
       - name: test
-        run: pnpm exec vitest run
+        run: pnpm exec vitest run --reporter=verbose
+
       - name: build web
         run: pnpm -F @charkha/web build
+
+      - name: agents boot
+        run: |
+          set -e
+          for a in producer matchmaker verifier registry; do
+            pnpm -F "@charkha/agent-$a" start &
+          done
+          for p in 4001 4002 4003 4004; do
+            for i in $(seq 1 30); do
+              curl -fsS "http://localhost:$p/health" >/dev/null 2>&1 && break
+              [ "$i" = "30" ] && { echo "::error::agent on :$p never became healthy"; exit 1; }
+              sleep 1
+            done
+            echo "ok - :$p healthy"
+          done
+        env:
+          A2A_JWT_SECRET: ci_only
+
+      - name: agent cards are served
+        run: |
+          set -e
+          for p in 4001 4002 4003 4004; do
+            name=$(curl -fsS "http://localhost:$p/.well-known/agent-card.json" | node -e \
+              'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const c=JSON.parse(d);if(!c.name||!c.skills?.length)process.exit(1);console.log(c.name)})')
+            echo "ok - :$p serves card for $name"
+          done
+
+  docker:
+    name: docker build
+    runs-on: ubuntu-latest
+    needs: [guard]
+    steps:
+      - uses: actions/checkout@v4
+      - name: build image
+        run: docker build -t charkha:ci .
