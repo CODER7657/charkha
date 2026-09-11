@@ -55,10 +55,10 @@ const setup = (opts: { model?: Partial<LoadedModel>; match?: MatchFacts | null; 
     model: () => model,
     agentCardId: "http://localhost:4003/.well-known/agent-card.json",
     findMatch: vi.fn(async () => (opts.match === undefined ? MATCH : opts.match)),
-    findPrior: vi.fn(async () => opts.prior ?? null),
-    claimEvidence: vi.fn(async () => true),
+    findPrior: vi.fn(async (_id: string): Promise<PriorEvidence | null> => opts.prior ?? null),
+    claimEvidence: vi.fn(async (_e: FieldEvidence, _taskId: string) => true),
     appendDecision: vi.fn(async () => ({})),
-    saveVerification: vi.fn(async () => {}),
+    saveVerification: vi.fn(async (_v: VerifyEvidenceOutput, _taskId: string) => {}),
     now: () => NOW,
   } satisfies VerifierDeps;
   return { deps, run: model.run === run ? run : (model.run as typeof run), verify: makeVerifyEvidence(deps) };
@@ -257,10 +257,40 @@ describe("verifyEvidence - offline retries are idempotent", () => {
     expect(deps.appendDecision).toHaveBeenCalledTimes(1);
   });
 
-  it("refuses when a concurrent request already claimed the evidence", async () => {
+  it("concurrent duplicates wait for the first verification instead of re-verifying a claimed row", async () => {
+    // A store with real async gaps, so request 2 can observe request 1's
+    // claimed-but-unverified row - the interleaving that double-wrote the ledger.
+    const rows = new Map<string, PriorEvidence>();
+    const gap = () => new Promise((r) => setTimeout(r, 5));
+    const { deps, verify } = setup();
+    deps.findPrior.mockImplementation(async (id: string) => {
+      await gap();
+      return rows.get(id) ?? null;
+    });
+    deps.claimEvidence.mockImplementation(async (e: FieldEvidence) => {
+      await gap();
+      if (rows.has(e.evidenceId)) return false;
+      rows.set(e.evidenceId, { evidence: e, verification: null });
+      return true;
+    });
+    deps.saveVerification.mockImplementation(async (v: VerifyEvidenceOutput) => {
+      await gap();
+      rows.set(v.evidenceId, { ...rows.get(v.evidenceId)!, verification: v });
+    });
+    deps.appendDecision.mockImplementation(async () => {
+      await gap();
+      return {};
+    });
+
+    const results = await Promise.all(Array.from({ length: 5 }, () => verify(evidence(), ctx)));
+    expect(deps.appendDecision).toHaveBeenCalledTimes(1);
+    for (const r of results) expect(r).toEqual(results[0]);
+  });
+
+  it("refuses when another process already claimed the evidence", async () => {
     const { deps, verify } = setup();
     deps.claimEvidence.mockResolvedValueOnce(false);
-    await expect(verify(evidence(), ctx)).rejects.toThrow(/concurrent/);
+    await expect(verify(evidence(), ctx)).rejects.toThrow(/another verifier process/);
     expect(deps.appendDecision).not.toHaveBeenCalled();
   });
 });

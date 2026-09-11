@@ -7,8 +7,12 @@ import type { FieldEvidence } from "@charkha/core";
  * demo beat - it is held in localStorage and retried. The verifier is
  * idempotent on evidenceId, so a retry of something that did land is safe.
  *
- * Only network-shaped failures are queued. If the server answered and said
- * no, retrying forever would be a lie; that error goes back to the user.
+ * Network failures and server errors are queued: the gateway answers 500
+ * when an agent is restarting, and field evidence must not be lost to that.
+ * A 4xx means the server looked at the payload and refused it - retrying
+ * that forever would be a lie, so it goes straight back to the user. Server
+ * errors are retried a bounded number of times so one poisoned item cannot
+ * sit in the queue forever.
  */
 
 export type QueueItem = { evidence: FieldEvidence; queuedAt: string; attempts: number; lastError: string };
@@ -26,13 +30,14 @@ type KV = Pick<Storage, "getItem" | "setItem">;
 
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
-/**
- * fetch throws TypeError when there is no network at all. A gateway or proxy
- * that cannot reach upstream answers 502/503/504. Everything else means the
- * server saw the payload and made a decision about it.
- */
+/** Server-error retries per item before giving up. Being offline never counts against this. */
+export const MAX_ATTEMPTS = 10;
+
+/** fetch throws TypeError when there is no network at all. */
+const isOffline = (err: unknown): boolean => err instanceof TypeError;
+
 export const isRetryable = (err: unknown): boolean =>
-  err instanceof TypeError || /HTTP (408|429|502|503|504)\b/.test(message(err));
+  isOffline(err) || /HTTP (408|429|5\d\d)\b/.test(message(err));
 
 export class EvidenceQueue {
   private flushing = false;
@@ -71,7 +76,10 @@ export class EvidenceQueue {
     }
   }
 
-  /** Retry everything, oldest first. Stops at the first network failure - still offline. */
+  /**
+   * Retry everything, oldest first. Stops at the first offline failure - the
+   * rest would fail the same way. A server error on one item moves on to the next.
+   */
   async flush(send: Send): Promise<FlushReport> {
     const report: FlushReport = { sent: [], failed: [] };
     if (this.flushing) return report;
@@ -79,17 +87,28 @@ export class EvidenceQueue {
     try {
       for (const item of this.list()) {
         const id = item.evidence.evidenceId;
+        const drop = () => this.save(this.list().filter((i) => i.evidence.evidenceId !== id));
         try {
           const result = await send(item.evidence);
-          this.save(this.list().filter((i) => i.evidence.evidenceId !== id));
+          drop();
           report.sent.push({ evidenceId: id, result });
         } catch (err) {
-          if (isRetryable(err)) {
-            this.save(this.list().map((i) => (i.evidence.evidenceId === id ? { ...i, attempts: i.attempts + 1, lastError: message(err) } : i)));
+          if (isOffline(err)) {
+            this.save(this.list().map((i) => (i.evidence.evidenceId === id ? { ...i, lastError: message(err) } : i)));
             break;
           }
-          this.save(this.list().filter((i) => i.evidence.evidenceId !== id));
-          report.failed.push({ evidenceId: id, error: message(err) });
+          if (!isRetryable(err)) {
+            drop();
+            report.failed.push({ evidenceId: id, error: message(err) });
+            continue;
+          }
+          const attempts = item.attempts + 1;
+          if (attempts >= MAX_ATTEMPTS) {
+            drop();
+            report.failed.push({ evidenceId: id, error: `gave up after ${attempts} attempts: ${message(err)}` });
+            continue;
+          }
+          this.save(this.list().map((i) => (i.evidence.evidenceId === id ? { ...i, attempts, lastError: message(err) } : i)));
         }
       }
     } finally {

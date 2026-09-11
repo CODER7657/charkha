@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
  *   1. ONNX_MODEL_PATH, if set (relative paths resolve from the repo root,
  *      not from whichever package directory pnpm started us in)
  *   2. ml/models/char-quality.onnx - a locally trained export (gitignored)
- *   3. ml/models/baseline/char-quality.onnx - the committed colour baseline,
+ *   3. ml/models/baseline-char-quality.onnx - the committed colour baseline,
  *      so a fresh clone runs end to end without Python
  */
 
@@ -25,7 +25,7 @@ export const candidateModelPaths = (env: NodeJS.ProcessEnv = process.env): strin
   if (fromEnv) return [path.resolve(REPO_ROOT, fromEnv)];
   return [
     path.join(REPO_ROOT, "ml/models/char-quality.onnx"),
-    path.join(REPO_ROOT, "ml/models/baseline/char-quality.onnx"),
+    path.join(REPO_ROOT, "ml/models/baseline-char-quality.onnx"),
   ];
 };
 

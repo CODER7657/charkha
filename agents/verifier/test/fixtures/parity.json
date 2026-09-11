@@ -1,5 +1,5 @@
 {
-  "model": "ml/models/baseline/char-quality.onnx",
+  "model": "ml/models/baseline-char-quality.onnx",
   "sha256": "e89f8a4722cbfad3bb7688f9b513c40c2037414086cc415622a506f297a789f1",
   "tolerance": 0.0001,
   "cases": [

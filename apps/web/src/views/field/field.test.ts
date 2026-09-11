@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { FieldEvidence, type VerifyEvidenceOutput } from "@charkha/core";
 import { CANARY_PREFIX, CLASSES } from "../../../../../agents/verifier/src/protocol.ts";
 import { buildEvidence, type BatchForm, type Scored } from "./evidence.ts";
-import { EvidenceQueue, isRetryable } from "./queue.ts";
+import { EvidenceQueue, MAX_ATTEMPTS, isRetryable } from "./queue.ts";
 
 const scored: Scored = {
   imageHash: "b".repeat(64),
@@ -104,7 +104,8 @@ describe("offline queue", () => {
 
     const stillOffline = await q.flush(offline);
     expect(stillOffline.sent).toHaveLength(0);
-    expect(q.list()[0]!.attempts).toBe(2);
+    expect(q.list()).toHaveLength(2);
+    expect(q.list()[0]!.attempts).toBe(1); // being offline never counts towards giving up
 
     const sent: string[] = [];
     const report = await q.flush(async (e) => {
@@ -116,22 +117,62 @@ describe("offline queue", () => {
     expect(q.list()).toHaveLength(0);
   });
 
-  it("does not queue a payload the server refused - retrying it forever would be a lie", async () => {
+  it("does not queue a payload the server rejected as invalid (4xx) - retrying it would be a lie", async () => {
     const q = new EvidenceQueue(memory());
     const res = await q.submit(build(), async () => {
-      throw new Error("/evidence -> HTTP 500");
+      throw new Error("/evidence -> HTTP 422");
     });
     expect(res.status).toBe("failed");
     expect(q.list()).toHaveLength(0);
   });
 
-  it("drops a queued item the server refuses on retry and reports it", async () => {
+  it("queues on a server error: the gateway answers 500 when the verifier is restarting, and that evidence must not be lost", async () => {
+    const q = new EvidenceQueue(memory());
+    const res = await q.submit(build(), async () => {
+      throw new Error("/evidence -> HTTP 500");
+    });
+    expect(res.status).toBe("queued");
+    expect(q.list()).toHaveLength(1);
+  });
+
+  it("a server error on one item does not block the items behind it", async () => {
+    const q = new EvidenceQueue(memory());
+    await q.submit(build({ evidenceId: "ev_bad" }), offline);
+    await q.submit(build({ evidenceId: "ev_good" }), offline);
+    const report = await q.flush(async (e) => {
+      if (e.evidenceId === "ev_bad") throw new Error("/evidence -> HTTP 500");
+      return verdict;
+    });
+    expect(report.sent.map((s) => s.evidenceId)).toEqual(["ev_good"]);
+    expect(q.list().map((i) => i.evidence.evidenceId)).toEqual(["ev_bad"]);
+  });
+
+  it("gives up on an item after MAX_ATTEMPTS server errors and reports it", async () => {
+    const q = new EvidenceQueue(memory());
+    await q.submit(build(), offline); // attempts = 1
+    const failing = async () => {
+      throw new Error("/evidence -> HTTP 500");
+    };
+    for (let i = 1; i < MAX_ATTEMPTS - 1; i++) expect((await q.flush(failing)).failed).toHaveLength(0);
+    const last = await q.flush(failing);
+    expect(last.failed).toEqual([{ evidenceId: "ev_1", error: `gave up after ${MAX_ATTEMPTS} attempts: /evidence -> HTTP 500` }]);
+    expect(q.list()).toHaveLength(0);
+  });
+
+  it("never gives up while simply offline", async () => {
+    const q = new EvidenceQueue(memory());
+    await q.submit(build(), offline);
+    for (let i = 0; i < MAX_ATTEMPTS + 5; i++) await q.flush(offline);
+    expect(q.list()).toHaveLength(1);
+  });
+
+  it("drops a queued item the server rejects as invalid on retry and reports it", async () => {
     const q = new EvidenceQueue(memory());
     await q.submit(build(), offline);
     const report = await q.flush(async () => {
-      throw new Error("/evidence -> HTTP 500");
+      throw new Error("/evidence -> HTTP 400");
     });
-    expect(report.failed).toEqual([{ evidenceId: "ev_1", error: "/evidence -> HTTP 500" }]);
+    expect(report.failed).toEqual([{ evidenceId: "ev_1", error: "/evidence -> HTTP 400" }]);
     expect(q.list()).toHaveLength(0);
   });
 
@@ -165,8 +206,9 @@ describe("offline queue", () => {
     [new TypeError("Failed to fetch"), true],
     [new Error("/evidence -> HTTP 503"), true],
     [new Error("/evidence -> HTTP 504"), true],
-    [new Error("/evidence -> HTTP 500"), false],
+    [new Error("/evidence -> HTTP 500"), true],
     [new Error("/evidence -> HTTP 400"), false],
+    [new Error("/evidence -> HTTP 422"), false],
   ])("isRetryable(%s) = %s", (err, expected) => {
     expect(isRetryable(err)).toBe(expected);
   });

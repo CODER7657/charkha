@@ -332,7 +332,7 @@ export const FieldCapture = () => {
         </div>
 
         {outcome?.kind === "queued" ? (
-          <p className="fc-note warn">No connection - saved on this device and will retry automatically ({outcome.error}).</p>
+          <p className="fc-note warn">Could not reach the verifier - saved on this device, retrying automatically ({outcome.error}).</p>
         ) : null}
         {outcome?.kind === "error" ? <p className="fc-error">{outcome.error}</p> : null}
         {outcome?.kind === "verdict" ? (

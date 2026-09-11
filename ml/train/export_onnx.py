@@ -121,7 +121,7 @@ def check_against_torch(model: torch.nn.Module, out: pathlib.Path) -> list[dict]
 def write_fixture(path: pathlib.Path, model_file: pathlib.Path, cases: list[dict]) -> None:
     """Solid images are described, not stored: the TS test rebuilds them."""
     fixture = {
-        "model": model_file.name,
+        "model": model_file.as_posix(),  # repo-relative, as passed on the command line
         "sha256": sha256(model_file),
         "tolerance": 1e-4,
         "cases": [],

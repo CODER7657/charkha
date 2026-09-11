@@ -3,14 +3,7 @@ import type { appendDecision } from "@charkha/db/ledger";
 import type { z } from "zod";
 import { canonicalJson, VerifyEvidenceInput, type FieldEvidence, type VerifyEvidenceOutput } from "@charkha/core";
 import type { LoadedModel } from "../onnx.ts";
-import {
-  CANARY_PREFIX,
-  CLASSES,
-  canaryTensor,
-  topClass,
-  type CharClass,
-  type ClassScores,
-} from "../protocol.ts";
+import { CANARY_PREFIX, CLASSES, canaryTensor, topClass, type CharClass, type ClassScores } from "../protocol.ts";
 
 /* ------------------------------------------------------------------ *
  * OWNER: Hem
@@ -56,7 +49,8 @@ export const THRESHOLDS = {
   hcOrgMax: {
     value: 0.7,
     unit: "mol/mol",
-    source: "EBC guidelines and IBI Biochar Standards: molar H/C_org < 0.7; Puro.earth biochar methodology applies the same cut-off",
+    source:
+      "EBC guidelines and IBI Biochar Standards: molar H/C_org < 0.7; Puro.earth biochar methodology applies the same cut-off",
   },
   /** Most biochar a tonne of dry feedstock can plausibly yield. */
   maxBiocharYield: {
@@ -121,10 +115,14 @@ export const findProblems = (e: FieldEvidence, now: Date): string[] => {
   if (now.getTime() - captured > BOUNDS.maxAgeMs) p.push("capturedAt is more than 30 days old");
 
   const b = e.batch;
-  if (!inRange(b.pyrolysisPeakTempC, BOUNDS.tempC)) p.push(`pyrolysisPeakTempC ${b.pyrolysisPeakTempC} is not a physical kiln reading`);
-  if (!inRange(b.residenceTimeMin, BOUNDS.residenceMin)) p.push(`residenceTimeMin ${b.residenceTimeMin} is out of bounds`);
-  if (!inRange(b.outputTonnes, BOUNDS.outputTonnes) || b.outputTonnes <= 0) p.push(`outputTonnes ${b.outputTonnes} is out of bounds`);
-  if (b.hcOrgRatio !== null && !inRange(b.hcOrgRatio, BOUNDS.hcOrg)) p.push(`hcOrgRatio ${b.hcOrgRatio} is out of bounds`);
+  if (!inRange(b.pyrolysisPeakTempC, BOUNDS.tempC))
+    p.push(`pyrolysisPeakTempC ${b.pyrolysisPeakTempC} is not a physical kiln reading`);
+  if (!inRange(b.residenceTimeMin, BOUNDS.residenceMin))
+    p.push(`residenceTimeMin ${b.residenceTimeMin} is out of bounds`);
+  if (!inRange(b.outputTonnes, BOUNDS.outputTonnes) || b.outputTonnes <= 0)
+    p.push(`outputTonnes ${b.outputTonnes} is out of bounds`);
+  if (b.hcOrgRatio !== null && !inRange(b.hcOrgRatio, BOUNDS.hcOrg))
+    p.push(`hcOrgRatio ${b.hcOrgRatio} is out of bounds`);
 
   // clientScores: exactly the photo classes plus their canary twins.
   const expected = new Set(CLASSES.flatMap((c) => [c, `${CANARY_PREFIX}${c}`]));
@@ -139,7 +137,8 @@ export const findProblems = (e: FieldEvidence, now: Date): string[] => {
     }
     for (const prefix of ["", CANARY_PREFIX]) {
       const sum = CLASSES.reduce((s, c) => s + (e.clientScores[`${prefix}${c}`] ?? 0), 0);
-      if (Math.abs(sum - 1) > BOUNDS.scoreSumTolerance) p.push(`${prefix || "photo "}scores sum to ${sum.toFixed(4)}, not 1`);
+      if (Math.abs(sum - 1) > BOUNDS.scoreSumTolerance)
+        p.push(`${prefix || "photo "}scores sum to ${sum.toFixed(4)}, not 1`);
     }
   }
   return p;
@@ -149,7 +148,10 @@ const pick = (scores: Record<string, number>, prefix = ""): ClassScores =>
   Object.fromEntries(CLASSES.map((c) => [c, scores[`${prefix}${c}`]!])) as ClassScores;
 
 export type MethodologyCheck = VerifyEvidenceOutput["methodologyChecks"][number];
-export type MatchFacts = { assignedTonnes: number; lotFeedstock: string | null };
+export type MatchFacts = {
+  assignedTonnes: number;
+  lotFeedstock: string | null;
+};
 
 /** Deterministic, model-free rules over the batch parameters. */
 export const methodologyChecks = (batch: FieldEvidence["batch"], match: MatchFacts | null): MethodologyCheck[] => {
@@ -168,7 +170,11 @@ export const methodologyChecks = (batch: FieldEvidence["batch"], match: MatchFac
   });
   checks.push(
     batch.hcOrgRatio === null
-      ? { check: "hc_org_ratio", passed: true, detail: "not reported - permanence ratio unverified, lab result pending" }
+      ? {
+          check: "hc_org_ratio",
+          passed: true,
+          detail: "not reported - permanence ratio unverified, lab result pending",
+        }
       : {
           check: "hc_org_ratio",
           passed: batch.hcOrgRatio < T.hcOrgMax.value,
@@ -176,7 +182,11 @@ export const methodologyChecks = (batch: FieldEvidence["batch"], match: MatchFac
         },
   );
   if (!match) {
-    checks.push({ check: "output_vs_matched_lot", passed: false, detail: "matchId not found - no lot to reconcile output against" });
+    checks.push({
+      check: "output_vs_matched_lot",
+      passed: false,
+      detail: "matchId not found - no lot to reconcile output against",
+    });
   } else {
     const max = match.assignedTonnes * T.maxBiocharYield.value;
     checks.push({
@@ -199,7 +209,10 @@ const round = (n: number, dp = 3) => Math.round(n * 10 ** dp) / 10 ** dp;
 
 /* ------------------------------------------------------------------ */
 
-export type PriorEvidence = { evidence: FieldEvidence; verification: VerifyEvidenceOutput | null };
+export type PriorEvidence = {
+  evidence: FieldEvidence;
+  verification: VerifyEvidenceOutput | null;
+};
 
 export type VerifierDeps = {
   model: () => LoadedModel;
@@ -218,110 +231,145 @@ export const sameEvidence = (a: FieldEvidence, b: FieldEvidence): boolean =>
   canonicalJson({ ...a, capturedAt: Date.parse(a.capturedAt) }) ===
   canonicalJson({ ...b, capturedAt: Date.parse(b.capturedAt) });
 
-export const makeVerifyEvidence =
-  (deps: VerifierDeps) =>
-  async (input: z.infer<typeof VerifyEvidenceInput>, ctx: SkillContext): Promise<VerifyEvidenceOutput> => {
+/**
+ * Runs `fn` with exclusive use of `key` within this process. Without it, a
+ * duplicate submission arriving while the first is mid-verify sees a claimed
+ * but unverified row, cannot tell "in progress" from "crashed", and appends a
+ * second decision. We run exactly one verifier process; scaling it out would
+ * need this to become a database lock.
+ */
+const keyedMutex = () => {
+  const tails = new Map<string, Promise<void>>();
+  return async <T>(key: string, fn: () => Promise<T>): Promise<T> => {
+    const prev = tails.get(key) ?? Promise.resolve();
+    let release!: () => void;
+    const tail = prev.then(() => new Promise<void>((r) => (release = r)));
+    tails.set(key, tail);
+    await prev;
+    try {
+      return await fn();
+    } finally {
+      release();
+      if (tails.get(key) === tail) tails.delete(key);
+    }
+  };
+};
+
+export const makeVerifyEvidence = (deps: VerifierDeps) => {
+  const exclusive = keyedMutex();
+  return async (input: z.infer<typeof VerifyEvidenceInput>, ctx: SkillContext): Promise<VerifyEvidenceOutput> => {
     // 1. Refuse malformed input. Nothing below this line sees a bad payload.
     const problems = findProblems(input, deps.now());
     if (problems.length) throw new MalformedEvidenceError(problems);
-
-    // 2. Idempotency: the offline queue retries, so the same evidence can
-    //    arrive twice. Replay the stored verdict; never append a second decision.
-    const prior = await deps.findPrior(input.evidenceId);
-    if (prior) {
-      if (!sameEvidence(prior.evidence, input)) {
-        throw new Error(`evidenceId ${input.evidenceId} was already submitted with different content - refused`);
-      }
-      if (prior.verification) {
-        ctx.progress("evidence already verified - returning the recorded verdict");
-        return prior.verification;
-      }
-      // Claimed earlier but never finished (crash mid-verify): finish it now.
-    } else if (!(await deps.claimEvidence(input, ctx.taskId))) {
-      throw new Error(`evidenceId ${input.evidenceId} is being verified by a concurrent request - retry shortly`);
-    }
-
-    const reasons: string[] = [];
-    let needsReview = false;
-    let rejected = false;
-
-    // 3. Model attestation.
-    const model = deps.model();
-    const photo = pick(input.clientScores);
-    const top = topClass(photo);
-
-    if (!model.loaded) {
-      needsReview = true;
-      reasons.push("server has no model loaded - on-device score cannot be attested");
-    } else {
-      if (input.modelHash !== model.hash) {
-        needsReview = true;
-        reasons.push(`client ran model ${input.modelHash.slice(0, 12)}…, server runs ${model.hash.slice(0, 12)}… - different model file`);
-      }
-      ctx.progress("running canary through onnxruntime-node");
-      const server = await model.run(canaryTensor(input.imageHash));
-      const client = pick(input.clientScores, CANARY_PREFIX);
-      const drift = Math.max(...CLASSES.map((c) => Math.abs(server[c] - client[c])));
-      if (drift > THRESHOLDS.canaryTolerance.value) {
-        needsReview = true;
-        reasons.push(
-          `client and server scores diverge on the canary: max drift ${drift.toExponential(2)} > ${THRESHOLDS.canaryTolerance.value} - on-device scores not trusted`,
-        );
-      } else {
-        reasons.push(`canary attested: browser and server agree within ${drift.toExponential(2)}`);
-      }
-    }
-
-    reasons.push(`on-device classification: ${top.cls} (${(top.p * 100).toFixed(1)}%)`);
-    const verdictByClass: Record<CharClass, "ok" | "review" | "reject"> = {
-      good_char: "ok",
-      poor_char: "review",
-      not_char: "reject",
-    };
-    if (verdictByClass[top.cls] === "reject") {
-      rejected = true;
-      reasons.push("photo is not biochar");
-    } else if (verdictByClass[top.cls] === "review") {
-      needsReview = true;
-      reasons.push("photo looks under-pyrolysed or ashy");
-    }
-    if (top.p < THRESHOLDS.minConfidence.value) {
-      needsReview = true;
-      reasons.push(`confidence below ${THRESHOLDS.minConfidence.value}`);
-    }
-
-    // 4. Methodology.
-    ctx.progress("running methodology checks");
-    const checks = methodologyChecks(input.batch, await deps.findMatch(input.matchId));
-    const failed = checks.filter((c) => !c.passed);
-    if (failed.length) {
-      rejected = true;
-      reasons.push(`methodology failed: ${failed.map((c) => c.check).join(", ")}`);
-    }
-
-    const output: VerifyEvidenceOutput = {
-      evidenceId: input.evidenceId,
-      verdict: rejected ? "rejected" : needsReview ? "needs_review" : "accepted",
-      charQualityScore: photo.good_char,
-      predictedClass: top.cls,
-      confidence: top.p,
-      modelHash: model.hash,
-      modelVersion: model.version,
-      reasons,
-      methodologyChecks: checks,
-    };
-
-    // 5. Exactly one decision per verification, then persist the verdict.
-    await deps.appendDecision({
-      taskId: ctx.taskId,
-      agent: "verifier",
-      agentCardId: deps.agentCardId,
-      action: "verifyEvidence",
-      input,
-      output,
-      modelHash: model.hash,
-      confidence: top.p,
-    });
-    await deps.saveVerification(output, ctx.taskId);
-    return output;
+    return exclusive(input.evidenceId, () => verifyOnce(deps, input, ctx));
   };
+};
+
+const verifyOnce = async (
+  deps: VerifierDeps,
+  input: FieldEvidence,
+  ctx: SkillContext,
+): Promise<VerifyEvidenceOutput> => {
+  // 2. Idempotency: the offline queue retries, so the same evidence can
+  //    arrive twice. Replay the stored verdict; never append a second decision.
+  const prior = await deps.findPrior(input.evidenceId);
+  if (prior) {
+    if (!sameEvidence(prior.evidence, input)) {
+      throw new Error(`evidenceId ${input.evidenceId} was already submitted with different content - refused`);
+    }
+    if (prior.verification) {
+      ctx.progress("evidence already verified - returning the recorded verdict");
+      return prior.verification;
+    }
+    // Claimed but never finished. We hold the lock, so nobody else is
+    // verifying it: the earlier attempt crashed mid-verify. Finish it now.
+  } else if (!(await deps.claimEvidence(input, ctx.taskId))) {
+    throw new Error(`evidenceId ${input.evidenceId} is being verified by another verifier process - retry shortly`);
+  }
+
+  const reasons: string[] = [];
+  let needsReview = false;
+  let rejected = false;
+
+  // 3. Model attestation.
+  const model = deps.model();
+  const photo = pick(input.clientScores);
+  const top = topClass(photo);
+
+  if (!model.loaded) {
+    needsReview = true;
+    reasons.push("server has no model loaded - on-device score cannot be attested");
+  } else {
+    if (input.modelHash !== model.hash) {
+      needsReview = true;
+      reasons.push(
+        `client ran model ${input.modelHash.slice(0, 12)}…, server runs ${model.hash.slice(0, 12)}… - different model file`,
+      );
+    }
+    ctx.progress("running canary through onnxruntime-node");
+    const server = await model.run(canaryTensor(input.imageHash));
+    const client = pick(input.clientScores, CANARY_PREFIX);
+    const drift = Math.max(...CLASSES.map((c) => Math.abs(server[c] - client[c])));
+    if (drift > THRESHOLDS.canaryTolerance.value) {
+      needsReview = true;
+      reasons.push(
+        `client and server scores diverge on the canary: max drift ${drift.toExponential(2)} > ${THRESHOLDS.canaryTolerance.value} - on-device scores not trusted`,
+      );
+    } else {
+      reasons.push(`canary attested: browser and server agree within ${drift.toExponential(2)}`);
+    }
+  }
+
+  reasons.push(`on-device classification: ${top.cls} (${(top.p * 100).toFixed(1)}%)`);
+  const verdictByClass: Record<CharClass, "ok" | "review" | "reject"> = {
+    good_char: "ok",
+    poor_char: "review",
+    not_char: "reject",
+  };
+  if (verdictByClass[top.cls] === "reject") {
+    rejected = true;
+    reasons.push("photo is not biochar");
+  } else if (verdictByClass[top.cls] === "review") {
+    needsReview = true;
+    reasons.push("photo looks under-pyrolysed or ashy");
+  }
+  if (top.p < THRESHOLDS.minConfidence.value) {
+    needsReview = true;
+    reasons.push(`confidence below ${THRESHOLDS.minConfidence.value}`);
+  }
+
+  // 4. Methodology.
+  ctx.progress("running methodology checks");
+  const checks = methodologyChecks(input.batch, await deps.findMatch(input.matchId));
+  const failed = checks.filter((c) => !c.passed);
+  if (failed.length) {
+    rejected = true;
+    reasons.push(`methodology failed: ${failed.map((c) => c.check).join(", ")}`);
+  }
+
+  const output: VerifyEvidenceOutput = {
+    evidenceId: input.evidenceId,
+    verdict: rejected ? "rejected" : needsReview ? "needs_review" : "accepted",
+    charQualityScore: photo.good_char,
+    predictedClass: top.cls,
+    confidence: top.p,
+    modelHash: model.hash,
+    modelVersion: model.version,
+    reasons,
+    methodologyChecks: checks,
+  };
+
+  // 5. Exactly one decision per verification, then persist the verdict.
+  await deps.appendDecision({
+    taskId: ctx.taskId,
+    agent: "verifier",
+    agentCardId: deps.agentCardId,
+    action: "verifyEvidence",
+    input,
+    output,
+    modelHash: model.hash,
+    confidence: top.p,
+  });
+  await deps.saveVerification(output, ctx.taskId);
+  return output;
+};
