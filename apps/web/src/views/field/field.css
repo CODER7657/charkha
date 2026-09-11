@@ -1,0 +1,217 @@
+/* OWNER: Hem - Field capture view. Scoped under .field. Mobile first. */
+
+.field {
+  max-width: 720px;
+}
+.field h2 {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 12px;
+}
+.field .fc-card,
+.field .fc-status {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 14px;
+}
+.field .fc-status > div {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.field .fc-pill {
+  font-size: 12px;
+  padding: 2px 9px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+.field .fc-pill.ok {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.field .fc-pill.off,
+.field .fc-pill.warn {
+  color: var(--hot);
+  border-color: color-mix(in srgb, var(--hot) 45%, transparent);
+}
+.field button.fc-pill {
+  background: transparent;
+  cursor: pointer;
+}
+
+.field .fc-capture {
+  display: block;
+  text-align: center;
+  padding: 18px;
+  border: 1px dashed var(--accent);
+  border-radius: 4px;
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+}
+.field .fc-capture.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.field .fc-capture input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.field .fc-capture:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.field .fc-result {
+  display: grid;
+  grid-template-columns: 112px 1fr;
+  gap: 14px;
+  margin-top: 14px;
+  align-items: start;
+}
+.field .fc-result img {
+  width: 112px;
+  height: 112px;
+  object-fit: cover;
+  border-radius: 3px;
+  border: 1px solid var(--line);
+}
+.field .fc-top {
+  font-size: 19px;
+  font-weight: 600;
+  margin: 0 0 6px;
+  text-transform: capitalize;
+}
+.field .fc-top span {
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 15px;
+}
+.field .fc-bar {
+  display: grid;
+  grid-template-columns: 76px 1fr 52px;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+}
+.field .fc-bar meter {
+  width: 100%;
+  height: 8px;
+}
+.field .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.field .fc-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+  margin-bottom: 12px;
+}
+.field .fc-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.field input,
+.field select {
+  font: inherit;
+  font-size: 16px; /* 16px stops iOS zooming on focus */
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 8px 9px;
+  min-width: 0;
+}
+.field input:focus,
+.field select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.field details {
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+.field summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+.field pre {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 10px;
+  font-size: 11.5px;
+  overflow-x: auto;
+  max-height: 320px;
+}
+.field .fc-submit {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+  padding: 10px 18px;
+}
+.field .fc-error,
+.field .fc-note.warn {
+  color: var(--hot);
+  font-size: 13.5px;
+  margin: 10px 0 0;
+}
+
+.field .fc-verdict {
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 3px;
+  border: 1px solid var(--line);
+  border-left-width: 4px;
+}
+.field .fc-verdict.accepted {
+  border-left-color: var(--accent);
+}
+.field .fc-verdict.needs_review {
+  border-left-color: #e8b53a;
+}
+.field .fc-verdict.rejected {
+  border-left-color: var(--hot);
+}
+.field .fc-verdict ul {
+  margin: 0 0 10px;
+  padding-left: 18px;
+  font-size: 13.5px;
+}
+.field .fc-checks {
+  list-style: none;
+  padding-left: 0 !important;
+}
+.field .fc-checks li.pass b {
+  color: var(--accent);
+}
+.field .fc-checks li.fail b {
+  color: var(--hot);
+}
+
+@media (max-width: 520px) {
+  .field .fc-grid {
+    grid-template-columns: 1fr;
+  }
+  .field .fc-result {
+    grid-template-columns: 84px 1fr;
+  }
+  .field .fc-result img {
+    width: 84px;
+    height: 84px;
+  }
+}

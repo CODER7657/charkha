@@ -1,47 +1,111 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import * as ort from "onnxruntime-node";
+import { resolveModelFiles } from "./modelFiles.ts";
+import { CLASSES, INPUT_DIMS, toClassScores, type ClassScores, type ModelSidecar } from "./protocol.ts";
 
 /**
  * OWNER: Hem
  *
  * Load the ONNX model once at boot and hash the file. The hash goes into
  * every decision record - that is how we prove which model version made a
- * given call. Do not skip it.
+ * given call.
  *
- * Use onnxruntime-node here. The SAME .onnx file is served to the browser
- * and run with onnxruntime-web in the field view: one artefact, two
- * runtimes. If server and browser ever disagree on the same input, that is
- * a bug worth stopping for - add a fixture test that pins it.
+ * The SAME .onnx file is served to the browser and run with onnxruntime-web
+ * in the field view: one artefact, two runtimes. parity.test.ts pins them.
  */
+
+export const NO_MODEL_HASH = "0".repeat(64);
 
 export type LoadedModel = {
   version: string;
   hash: string;
-  run: (input: Float32Array) => Promise<Record<string, number>>;
+  /** false in stub mode: no model file was found, `run` must not be trusted. */
+  loaded: boolean;
+  /** One NCHW float32 image of INPUT_DIMS -> probabilities per class. */
+  run: (input: Float32Array) => Promise<ClassScores>;
 };
 
 let model: LoadedModel | null = null;
 
+/** Open one specific file. Exported for tests; the agent uses loadModel(). */
+export const openModel = async (onnxPath: string, sidecarPath = `${onnxPath}.json`): Promise<LoadedModel> => {
+  const bytes = await readFile(onnxPath);
+  const hash = createHash("sha256").update(bytes).digest("hex");
+  // Create from the exact bytes we hashed, so the hash describes what runs.
+  const session = await ort.InferenceSession.create(bytes, { executionProviders: ["cpu"] });
+
+  const inputName = session.inputNames[0];
+  const outputName = session.outputNames[0];
+  if (!inputName || !outputName) throw new Error(`${onnxPath}: model has no input or output`);
+
+  const version = await readVersion(sidecarPath, hash);
+
+  return {
+    version,
+    hash,
+    loaded: true,
+    run: async (input) => {
+      const expected = INPUT_DIMS.reduce<number>((a, b) => a * b, 1);
+      if (input.length !== expected) throw new Error(`model input must have ${expected} values, got ${input.length}`);
+      const feeds = { [inputName]: new ort.Tensor("float32", input, [...INPUT_DIMS]) };
+      const out = await session.run(feeds);
+      const probs = out[outputName];
+      if (!probs) throw new Error(`model produced no "${outputName}" output`);
+      return toClassScores(probs.data as Float32Array);
+    },
+  };
+};
+
+/**
+ * The sidecar carries the human version string. If its recorded hash does not
+ * match the file, the sidecar is stale and we refuse to borrow its version -
+ * the hash is the truth, a wrong version label would be worse than none.
+ */
+const readVersion = async (sidecarPath: string, hash: string): Promise<string> => {
+  try {
+    const meta = JSON.parse(await readFile(sidecarPath, "utf8")) as Partial<ModelSidecar>;
+    if (meta.sha256 !== hash) {
+      console.warn(`[verifier] ${sidecarPath} describes a different file (sha256 mismatch) - ignoring its version`);
+      return "unmanifested";
+    }
+    if (JSON.stringify(meta.classes) !== JSON.stringify(CLASSES)) {
+      throw new Error(`model classes ${JSON.stringify(meta.classes)} do not match protocol ${JSON.stringify(CLASSES)}`);
+    }
+    return meta.version ?? "unmanifested";
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith("model classes")) throw err;
+    return process.env["ONNX_MODEL_VERSION"] ?? "unmanifested";
+  }
+};
+
+const stubModel = (): LoadedModel => ({
+  version: "0.0.0-no-model",
+  hash: NO_MODEL_HASH,
+  loaded: false,
+  run: async () => {
+    throw new Error("no model loaded");
+  },
+});
+
 export const loadModel = async (): Promise<LoadedModel> => {
   if (model) return model;
-  const path = process.env["ONNX_MODEL_PATH"] ?? "./ml/models/char-quality.onnx";
+  const files = resolveModelFiles();
+  if (!files) {
+    // Model not exported yet - do not crash the mesh, just be honest about it.
+    console.warn("[verifier] no .onnx model found - running in stub mode, every verdict will be needs_review");
+    model = stubModel();
+    return model;
+  }
+  for (const skipped of files.missing) {
+    console.warn(`[verifier] ONNX_MODEL_PATH=${skipped} does not exist - falling back to ${files.onnx}`);
+  }
   try {
-    const bytes = await readFile(path);
-    const hash = createHash("sha256").update(bytes).digest("hex");
-    // TODO(hem): const session = await ort.InferenceSession.create(path)
-    model = {
-      version: process.env["ONNX_MODEL_VERSION"] ?? "0.1.0-stub",
-      hash,
-      run: async () => ({ good_char: 0.5, poor_char: 0.3, not_char: 0.2 }),
-    };
-  } catch {
-    // Model not trained yet - do not crash the mesh, just be honest about it.
-    model = {
-      version: "0.0.0-no-model",
-      hash: "0".repeat(64),
-      run: async () => ({ good_char: 0.5, poor_char: 0.3, not_char: 0.2 }),
-    };
-    console.warn(`[verifier] no model at ${path} - running in stub mode`);
+    model = await openModel(files.onnx, files.sidecar);
+    console.log(`[verifier] model ${model.version} sha256=${model.hash} from ${files.onnx}`);
+  } catch (err) {
+    console.warn(`[verifier] could not load ${files.onnx}: ${err instanceof Error ? err.message : err} - stub mode`);
+    model = stubModel();
   }
   return model;
 };

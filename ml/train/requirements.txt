@@ -1,0 +1,7 @@
+# Training and export only - nothing here ships with the app.
+torch>=2.5
+torchvision>=0.20
+onnx>=1.17
+onnxruntime>=1.20
+numpy>=1.26
+pillow>=10
