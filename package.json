@@ -17,7 +17,8 @@
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "build:web": "pnpm -F @charkha/web build",
-    "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build:web"
+    "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build:web",
+    "setup:env": "tsx scripts/setup-env.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

@@ -3,18 +3,20 @@ packages:
   - "agents/*"
   - "apps/*"
 
-# pnpm 11 blocks dependency build scripts unless they are listed here, and by
-# default turns any ignored build into a hard install error. These three
+# pnpm blocks dependency build scripts until they are reviewed. These three
 # genuinely need theirs: esbuild and onnxruntime-node fetch a native binary,
-# protobufjs generates code.
+# protobufjs generates code. Without this, onnxruntime-node installs without
+# its native binding and fails the first time an agent actually runs inference.
 #
-# NOTE: this belongs here, not in package.json. pnpm 11 no longer reads the
-# "pnpm" key in package.json at all.
-onlyBuiltDependencies:
-  - esbuild
-  - onnxruntime-node
-  - protobufjs
+# NOTE: this is `allowBuilds`. pnpm 11 removed `onlyBuiltDependencies` (and
+# neverBuiltDependencies / ignoredBuiltDependencies) and replaced them with
+# this map. The old key is silently ignored, which is exactly how it bit us.
+allowBuilds:
+  esbuild: true
+  onnxruntime-node: true
+  protobufjs: true
 
-# Anything not on the list above is skipped with a warning rather than failing
-# the whole install. We would rather find out at runtime than lose the build.
+# An unreviewed build script from some new transitive dependency warns instead
+# of failing the whole install. We would rather find out at runtime than lose
+# the build at 3am.
 strictDepBuilds: false
