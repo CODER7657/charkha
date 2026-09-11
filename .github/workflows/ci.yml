@@ -97,7 +97,7 @@ jobs:
           node-version: 22
 
       - name: install
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: lint
         run: pnpm exec eslint . --max-warnings 0
@@ -137,6 +137,21 @@ jobs:
               'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const c=JSON.parse(d);if(!c.name||!c.skills?.length)process.exit(1);console.log(c.name)})')
             echo "ok - :$p serves card for $name"
           done
+
+      # Booting and serving a card proves an agent is alive and discoverable.
+      # It does NOT prove a caller can reach a skill - the transport sat broken
+      # underneath a green build until someone tried to use it. The assertions
+      # live in scripts/smoke.mjs rather than inline here, because shell
+      # quoting inside YAML is exactly how the first version of this broke.
+      - name: a skill is reachable end to end
+        run: |
+          pnpm -F @charkha/gateway start &
+          for i in $(seq 1 30); do
+            curl -fsS http://localhost:4000/api/health >/dev/null 2>&1 && break
+            [ "$i" = "30" ] && { echo "::error::gateway never became healthy"; exit 1; }
+            sleep 1
+          done
+          node scripts/smoke.mjs
 
   docker:
     name: docker build
