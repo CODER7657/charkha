@@ -1,7 +1,8 @@
-import "dotenv/config";
-import { buildAgentCard, startAgentServer } from "@charkha/a2a";
+import { loadEnv, buildAgentCard, startAgentServer } from "@charkha/a2a";
 import { RunMatchingInput } from "@charkha/core";
 import { runMatching } from "./skills/runMatching.ts";
+
+loadEnv();
 
 const PORT = Number(process.env["MATCHMAKER_PORT"] ?? 4002);
 

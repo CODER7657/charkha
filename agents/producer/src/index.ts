@@ -1,8 +1,9 @@
-import "dotenv/config";
-import { buildAgentCard, startAgentServer } from "@charkha/a2a";
+import { loadEnv, buildAgentCard, startAgentServer } from "@charkha/a2a";
 import { ListLotsInput, IngestBurnsInput } from "@charkha/core";
 import { ingestBurns } from "./skills/ingestBurns.ts";
 import { listLots } from "./skills/listLots.ts";
+
+loadEnv();
 
 const PORT = Number(process.env["PRODUCER_PORT"] ?? 4001);
 

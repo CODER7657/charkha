@@ -1,8 +1,9 @@
-import "dotenv/config";
-import { buildAgentCard, startAgentServer } from "@charkha/a2a";
+import { loadEnv, buildAgentCard, startAgentServer } from "@charkha/a2a";
 import { IssueCreditInput, RetireCreditInput } from "@charkha/core";
 import { issueCredit } from "./skills/issueCredit.ts";
 import { retireCredit } from "./skills/retireCredit.ts";
+
+loadEnv();
 
 const PORT = Number(process.env["REGISTRY_PORT"] ?? 4004);
 
