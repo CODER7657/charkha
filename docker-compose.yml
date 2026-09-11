@@ -30,6 +30,13 @@ services:
     build: { context: ., dockerfile: Dockerfile }
     command: pnpm -F @charkha/agent-producer start
     env_file: [.env]
+    # The FIRMS cache is the middle rung of the fallback: live -> cache ->
+    # bundled sample. Without a volume it lives in the container's writable
+    # layer and a `docker compose down` throws it away, so on the box the
+    # chain was really live -> nothing -> sample. A named volume is what makes
+    # the rung Harsh designed actually exist in the deployment.
+    volumes:
+      - firmscache:/app/data/firms-cache
     environment:
       DATABASE_URL: postgres://charkha:${POSTGRES_PASSWORD}@db:5432/charkha
       PRODUCER_URL: http://producer:4001
@@ -118,3 +125,4 @@ services:
 volumes:
   pgdata:
   caddydata:
+  firmscache:
