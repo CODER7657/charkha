@@ -57,7 +57,14 @@ const fieldAssetsPlugin = (): Plugin => ({
 
 export default defineConfig({
   plugins: [react(), fieldAssetsPlugin()],
-  server: { port: 5173, proxy: { "/api": "http://localhost:4000" } },
+  server: {
+    // IPv4 on purpose. On Windows "localhost" binds only [::1], and
+    // `adb reverse` (phone testing, see ml/README.md) delivers to 127.0.0.1,
+    // so the phone got "site can't be reached". Desktop browsers try both.
+    host: "127.0.0.1",
+    port: 5173,
+    proxy: { "/api": "http://localhost:4000" },
+  },
   // Pick onnxruntime-web's build that loads its wasm + glue from wasmPaths
   // (/ort/) instead of bundling a second 25 MB copy under /assets.
   resolve: { conditions: ["onnxruntime-web-use-extern-wasm", ...defaultClientConditions] },

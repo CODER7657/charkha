@@ -75,13 +75,26 @@ re-runs it with onnxruntime-node. Divergence → `needs_review`.
 `crypto.subtle` (image hashing) and the camera only work in a **secure context**
 - `https://` or `localhost`. Plain `http://192.168.x.x:5173` will not work. Either:
 
-- **USB (Android):** `adb reverse tcp:5173 tcp:5173`, then open
-  `http://localhost:5173/#field` in Chrome on the phone. Works with wifi off.
+- **USB (Android):** enable USB debugging on the phone, plug it in, accept the
+  "Allow USB debugging?" prompt, then `adb reverse tcp:5173 tcp:5173` and open
+  `http://localhost:5173/#field` in Chrome on the phone. (Windows without adb:
+  `winget install Google.PlatformTools`.)
 - **Demo host:** the Caddy deployment serves HTTPS, open `/#field`.
 
 Load the page while online (the model and the ~26 MB wasm, ~6 MB gzipped, are
-fetched once), then turn wifi off: capture and inference still work, and
-submissions queue in `localStorage` until the network returns.
+fetched once). Don't reload after that.
+
+**The offline test over USB:** the cable is the phone's route to your laptop, so
+turning wifi off alone does not cut it. Turn wifi off *and* run
+`adb reverse --remove tcp:5173` - now nothing reaches the server. Capture and
+submit: inference still runs and the page shows "saved on this device". Then
+`adb reverse tcp:5173 tcp:5173` again and, with no tap, the queue delivers
+within 15 s ("1 queued submission(s) delivered").
+
+Verified on a motorola edge 60 fusion (Android 16, Chrome 151): WebGPU,
+~250-270 ms per photo including decode and resize, canary agreement with the
+server ~1e-9, offline capture queued and delivered with exactly one ledger
+decision.
 
 ## Non-negotiable
 
