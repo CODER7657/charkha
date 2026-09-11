@@ -33,11 +33,13 @@ below will make sense, and the tab-bar dots in the UI are showing the same thing
 curl -s -X POST $BASE/api/ingest
 ```
 
-Expect something like `{"fetched":23,"newDetections":22,"lotsCreated":22}`.
+Expect something like
+`{"fetched":23,"newDetections":22,"lotsCreated":22,"origin":"live"}`.
 
-`fetched` coming back as exactly **22** with **0 new** on a first run is the tell
-that you are serving the bundled sample rather than live NASA data. A live fetch
-also writes a file into `data/firms-cache/`; check that if you want certainty.
+**Check `origin`.** `live` is the real NASA feed; `cache` or `fixture` means the
+fetch failed and you are serving stored data — fine as a fallback, but do not
+claim live satellite data on stage when it says `fixture`. A live fetch also
+writes a file into `data/firms-cache/`.
 
 ## 2. Lots → matches (matchmaker)
 
@@ -45,9 +47,15 @@ also writes a file into `data/firms-cache/`; check that if you want certainty.
 curl -s -X POST $BASE/api/match -H 'content-type: application/json' -d '{"maxRadiusKm":60}'
 ```
 
-Expect 8-ish matches. **Keep the first `matchId` and note its `lotId`** — you need
+Expect around **19 of 22 lots matched** on live data with the ten seeded units,
+over roughly 7–56 km. **Keep the first `matchId` and note its `lotId`** — you need
 both in the next step. The `rationale` string is worth reading aloud; it says why
 that unit won.
+
+The two or three that stay unmatched are in the far north-west, out of range of
+any unit. Leave them: an unmatched lot shows the matcher refusing rather than
+pretending, and "no unit in range means the residue stays in the field and no
+credit is ever issued" is the honest economics of the problem.
 
 Then find the lot's feedstock, because the field form has to agree with it:
 
