@@ -29,6 +29,9 @@ importers:
       eslint:
         specifier: ^9.18.0
         version: 9.39.5
+      onnxruntime-node:
+        specifier: ^1.29.0
+        version: 1.29.0
       prettier:
         specifier: ^3.4.2
         version: 3.9.6
