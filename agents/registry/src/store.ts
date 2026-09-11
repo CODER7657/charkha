@@ -1,6 +1,6 @@
 import { db, schema, eq, desc, asc } from "@charkha/db";
 import { appendDecision } from "@charkha/db/ledger";
-import { GENESIS_HASH, type CreditRecord, type DecisionRecord, type FieldEvidence, type Match } from "@charkha/core";
+import { GENESIS_HASH, type CreditRecord, type DecisionRecord, type FieldEvidence, type Match, type VerifyEvidenceOutput } from "@charkha/core";
 
 /* ------------------------------------------------------------------ *
  * The registry's view of storage, as an interface.
@@ -46,6 +46,8 @@ const isUniqueViolation = (err: unknown, constraint: string): boolean => {
 export type RegistryStore = {
   findMatch: (matchId: string) => Promise<Match | null>;
   findEvidence: (evidenceId: string) => Promise<FieldEvidence | null>;
+  /** The verifier's own verdict, as it was written. The registry trusts this and nothing else. */
+  findVerification: (evidenceId: string) => Promise<VerifyEvidenceOutput | null>;
   findCreditByEvidenceId: (evidenceId: string) => Promise<CreditRecord | null>;
   findCreditById: (creditId: string) => Promise<CreditRecord | null>;
   /** Issued credits in issuance order. The position in this list is the status-list index. */
@@ -119,6 +121,26 @@ export const dbStore = (): RegistryStore => ({
     return rows.map(creditFromRow);
   },
 
+  findVerification: async (evidenceId) => {
+    const [row] = await db()
+      .select()
+      .from(schema.verifications)
+      .where(eq(schema.verifications.evidenceId, evidenceId))
+      .limit(1);
+    if (!row) return null;
+    // Map to the contract shape exactly - taskId is ours, not part of the verdict.
+    return {
+      evidenceId: row.evidenceId,
+      verdict: row.verdict as VerifyEvidenceOutput["verdict"],
+      charQualityScore: row.charQualityScore,
+      predictedClass: row.predictedClass,
+      confidence: row.confidence,
+      modelHash: row.modelHash,
+      modelVersion: row.modelVersion,
+      reasons: row.reasons,
+      methodologyChecks: row.methodologyChecks as VerifyEvidenceOutput["methodologyChecks"],
+    };
+  },
   insertCredit: async (credit, taskId) => {
     try {
       await db()

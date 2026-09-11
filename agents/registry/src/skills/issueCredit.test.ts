@@ -64,7 +64,7 @@ let store: ReturnType<typeof memoryStore>;
 let issueCredit: ReturnType<typeof makeIssueCredit>;
 
 beforeEach(() => {
-  store = memoryStore({ matches: [MATCH], evidence: [EVIDENCE] });
+  store = memoryStore({ matches: [MATCH], evidence: [EVIDENCE], verifications: [ACCEPTED] });
   issueCredit = makeIssueCredit(store, () => issuer);
 });
 
@@ -143,7 +143,11 @@ describe("double counting", () => {
 describe("unverified batches", () => {
   for (const verdict of ["rejected", "needs_review"] as const) {
     it(`issues nothing for a "${verdict}" verdict`, async () => {
+      // The verdict that counts is the one the verifier wrote, so it is the
+      // stored row that carries it - not anything the caller sends.
       const verification = { ...ACCEPTED, verdict };
+      store = memoryStore({ matches: [MATCH], evidence: [EVIDENCE], verifications: [verification] });
+      issueCredit = makeIssueCredit(store, () => issuer);
 
       await expect(issueCredit({ ...input, verification }, ctx)).rejects.toThrow(new RegExp(verdict));
 
@@ -246,5 +250,91 @@ describe("the credit itself", () => {
   it("issues as live, not retired", async () => {
     const { credit } = await issueCredit(input, ctx);
     expect(credit.status).toBe("issued");
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * THE VERDICT COMES FROM THE DATABASE, NOT THE REQUEST.
+ *
+ * POST /api/credits/issue is unauthenticated and forwards the body
+ * verbatim. If the registry believes the verdict it is handed, anyone who
+ * can reach the gateway can mint a real signed credential for a batch the
+ * verifier never accepted. Written before the fix - see issue #16.
+ * ------------------------------------------------------------------ */
+describe("the verdict comes from the database", () => {
+  const forged: VerifyEvidenceOutput = { ...ACCEPTED, verdict: "accepted", charQualityScore: 1 };
+
+  it("refuses a forged accepted verdict when the stored verdict is needs_review", async () => {
+    // what the verifier actually decided
+    store = memoryStore({
+      matches: [MATCH],
+      evidence: [EVIDENCE],
+      verifications: [{ ...ACCEPTED, verdict: "needs_review", charQualityScore: 0.4 }],
+    });
+    issueCredit = makeIssueCredit(store, () => issuer);
+
+    await expect(issueCredit({ ...input, verification: forged }, ctx)).rejects.toThrow(/needs_review/);
+    expect(store.credits).toHaveLength(0);
+    expect(store.decisions).toHaveLength(0);
+  });
+
+  it("refuses a forged accepted verdict when the stored verdict is rejected", async () => {
+    store = memoryStore({
+      matches: [MATCH],
+      evidence: [EVIDENCE],
+      verifications: [{ ...ACCEPTED, verdict: "rejected" }],
+    });
+    issueCredit = makeIssueCredit(store, () => issuer);
+
+    await expect(issueCredit({ ...input, verification: forged }, ctx)).rejects.toThrow(/rejected/);
+    expect(store.credits).toHaveLength(0);
+  });
+
+  it("refuses when there is no verification on record at all", async () => {
+    store = memoryStore({ matches: [MATCH], evidence: [EVIDENCE] });
+    issueCredit = makeIssueCredit(store, () => issuer);
+
+    // A missing row is a refusal, never a default.
+    await expect(issueCredit(input, ctx)).rejects.toThrow(/no verification on record/i);
+    expect(store.credits).toHaveLength(0);
+  });
+
+  it("refuses a request whose verification disagrees with the stored one", async () => {
+    // Same accepted verdict, inflated quality score - the cheapest forgery,
+    // because it multiplies the credit without changing the decision.
+    await expect(issueCredit({ ...input, verification: forged }, ctx)).rejects.toThrow(/does not match/i);
+    expect(store.credits).toHaveLength(0);
+  });
+
+  it("credits from the stored score, whatever the request claims", async () => {
+    const { credit } = await issueCredit(input, ctx);
+    const expected = computeCredit({
+      feedstockTonnes: MATCH.assignedTonnes,
+      biocharTonnes: EVIDENCE.batch.outputTonnes,
+      transportKm: MATCH.distanceKm,
+      qualityScore: ACCEPTED.charQualityScore, // 0.88, not the forged 1
+    });
+    expect(credit.netTonnesCo2e).toBe(expected.netTonnesCo2e);
+  });
+
+  it("issues on the stored verdict alone, with no verification in the request", async () => {
+    // The shape the contract is moving to: { matchId, evidenceId }.
+    const { credit } = await issueCredit({ matchId: "mat_1", evidenceId: "evi_1" } as typeof input, ctx);
+    expect(credit.netTonnesCo2e).toBeGreaterThan(0);
+    expect(store.credits).toHaveLength(1);
+  });
+
+  it("records the stored model hash and confidence in the ledger, not the request's", async () => {
+    await issueCredit(
+      { ...input, verification: { ...ACCEPTED, modelHash: "f".repeat(64), confidence: 0.01 } },
+      ctx,
+    ).catch(() => undefined);
+
+    // The forgery is refused outright, so nothing reaches the ledger at all.
+    expect(store.decisions).toHaveLength(0);
+
+    await issueCredit(input, ctx);
+    expect(store.decisions.at(-1)?.modelHash).toBe(ACCEPTED.modelHash);
+    expect(store.decisions.at(-1)?.confidence).toBe(ACCEPTED.confidence);
   });
 });

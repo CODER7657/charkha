@@ -1,4 +1,4 @@
-import { GENESIS_HASH, hashPayload, linkDecision, type CreditRecord, type DecisionRecord, type FieldEvidence, type Match } from "@charkha/core";
+import { GENESIS_HASH, hashPayload, linkDecision, type CreditRecord, type DecisionRecord, type FieldEvidence, type Match, type VerifyEvidenceOutput } from "@charkha/core";
 import { DuplicateEvidenceError, type RegistryStore } from "./store.ts";
 
 /**
@@ -9,15 +9,19 @@ import { DuplicateEvidenceError, type RegistryStore } from "./store.ts";
  * exercising the same behaviour the database path has. CI has no Postgres,
  * and the double-counting guard is too important to go untested there.
  */
-export const memoryStore = (seed: { matches?: Match[]; evidence?: FieldEvidence[] } = {}) => {
+export const memoryStore = (
+  seed: { matches?: Match[]; evidence?: FieldEvidence[]; verifications?: VerifyEvidenceOutput[] } = {},
+) => {
   const matches = new Map((seed.matches ?? []).map((m) => [m.matchId, m]));
   const evidence = new Map((seed.evidence ?? []).map((e) => [e.evidenceId, e]));
+  const verifications = new Map((seed.verifications ?? []).map((v) => [v.evidenceId, v]));
   const credits: CreditRecord[] = [];
   const decisions: DecisionRecord[] = [];
 
   const store: RegistryStore = {
     findMatch: async (matchId) => matches.get(matchId) ?? null,
     findEvidence: async (evidenceId) => evidence.get(evidenceId) ?? null,
+    findVerification: async (evidenceId) => verifications.get(evidenceId) ?? null,
     findCreditByEvidenceId: async (evidenceId) => credits.find((c) => c.evidenceId === evidenceId) ?? null,
     findCreditById: async (creditId) => credits.find((c) => c.creditId === creditId) ?? null,
     listCredits: async () => [...credits],
