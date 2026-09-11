@@ -39,7 +39,9 @@ export const appendDecision = async (args: {
 
   return d.transaction(async (tx) => {
     // Blocks until we hold the ledger. Released at transaction end.
-    // EXPERIMENT: lock deliberately removed to prove the test catches it.
+    // EXPERIMENT: real lock replaced with a no-op that still references both
+    // symbols, so lint passes and the TEST is what decides.
+    await tx.execute(sql`SELECT ${LEDGER_LOCK_KEY}`);
 
     const [last] = await tx.select().from(decisionLog).orderBy(desc(decisionLog.seq)).limit(1);
 
