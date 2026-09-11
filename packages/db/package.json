@@ -10,7 +10,7 @@
     "./ledger": "./src/ledger.ts"
   },
   "scripts": {
-    "push": "drizzle-kit push",
+    "push": "drizzle-kit push --force",
     "studio": "drizzle-kit studio"
   },
   "dependencies": {
