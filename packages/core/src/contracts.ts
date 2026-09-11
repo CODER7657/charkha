@@ -79,6 +79,18 @@ export const ConversionUnit = z.object({
 });
 export type ConversionUnit = z.infer<typeof ConversionUnit>;
 
+/**
+ * Conversion units are already public on the operator map - a processing site,
+ * its capacity and what feedstock it takes. Nothing here is sensitive, and the
+ * browser cannot draw the unit layer or a lot -> unit route without it.
+ */
+export const ListUnitsInput = z.object({
+  /** Only units that accept this feedstock. */
+  feedstock: FeedstockClass.optional(),
+  limit: z.number().int().min(1).max(500).default(200),
+});
+export const ListUnitsOutput = z.object({ units: z.array(ConversionUnit) });
+
 export const Match = z.object({
   matchId: z.string(),
   lotId: z.string(),
