@@ -62,10 +62,25 @@ export const IngestBurnsInput = z.object({
   bbox: z.string().optional(),
   dayRange: z.number().int().min(1).max(10).optional(),
 });
+/**
+ * Where an ingest actually got its CSV. The producer falls back
+ * live -> newest cached response -> bundled sample, so a populated map is
+ * NOT evidence that the live feed answered.
+ */
+export const FeedOrigin = z.enum(["live", "cache", "fixture"]);
+export type FeedOrigin = z.infer<typeof FeedOrigin>;
+
 export const IngestBurnsOutput = z.object({
   fetched: z.number().int(),
   newDetections: z.number().int(),
   lotsCreated: z.number().int(),
+  origin: FeedOrigin,
+  /**
+   * The same sentence the agent reports through ctx.progress(), carried on the
+   * output so the operator view can render it. Names the cached file when it
+   * used one, so "cached response from 14:02" is visible rather than implied.
+   */
+  originNote: z.string(),
 });
 
 /* ---------- MATCHMAKER  (owner: Harsh) ---------- */
