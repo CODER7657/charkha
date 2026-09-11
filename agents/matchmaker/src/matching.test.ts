@@ -216,9 +216,15 @@ describe("capacity already committed today", () => {
 describe("distance and transport debit", () => {
   /* THE KNOWN-PAIR ASSERTION — required by the definition of done.
      Ludhiana (30.901, 75.857) -> Patiala (30.339, 76.386):
-       great-circle    ~80.5 km
+       great-circle    ~80.4 km
        road (x1.30)    ~104.6 km
-       10 t at 0.107 kgCO2e/t-km  ~111.9 kgCO2e                       */
+       10 t at 0.14 kgCO2e/t-km   ~146.4 kgCO2e
+
+     The debit was ~111.9 until #11 replaced the placeholder freight factor
+     (0.107) with the India-specific Smart Freight Centre figure (0.14). This
+     number is recomputed by hand from the new factor, not adjusted until the
+     test went green - the whole point of asserting it is that it is derived
+     independently of the code. */
   it("matches a hand-computed distance and debit for a known pair of points", () => {
     const result = assign({
       lots: [lot({ at: PATIALA, tonnes: 10 })],
@@ -228,7 +234,7 @@ describe("distance and transport debit", () => {
 
     const match = result.assignments[0];
     expect(match?.distanceKm).toBeCloseTo(104.6, 0);
-    expect(match?.transportKgCo2e).toBeCloseTo(111.9, 0);
+    expect(match?.transportKgCo2e).toBeCloseTo(146.4, 0);
   });
 
   it("charges more for a heavier load over the same road", () => {

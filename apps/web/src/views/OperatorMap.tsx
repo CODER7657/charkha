@@ -91,8 +91,9 @@ export const OperatorMap = () => {
       setUnits(res.output?.units ?? []);
       setUnitsMissing(false);
     } catch {
-      // The gateway may not expose units yet. Degrade to a burns-only map
-      // and say so rather than rendering a silently half-drawn picture.
+      // /api/units exists (#14), so reaching here means the matchmaker or the
+      // gateway is down. Degrade to a detections-only map and say so, rather
+      // than rendering a silently half-drawn picture that looks complete.
       setUnits([]);
       setUnitsMissing(true);
     }
@@ -219,7 +220,8 @@ export const OperatorMap = () => {
 
       {unitsMissing ? (
         <p className="origin warn">
-          Conversion units are not being served by the gateway yet, so the map shows detections only.
+          Could not load conversion units — the matchmaker may be down. Showing detections only; routes
+          and unit markers are hidden rather than guessed at.
         </p>
       ) : null}
 
