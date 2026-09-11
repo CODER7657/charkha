@@ -97,6 +97,9 @@ export const loadModel = async (): Promise<LoadedModel> => {
     model = stubModel();
     return model;
   }
+  for (const skipped of files.missing) {
+    console.warn(`[verifier] ONNX_MODEL_PATH=${skipped} does not exist - falling back to ${files.onnx}`);
+  }
   try {
     model = await openModel(files.onnx, files.sidecar);
     console.log(`[verifier] model ${model.version} sha256=${model.hash} from ${files.onnx}`);
