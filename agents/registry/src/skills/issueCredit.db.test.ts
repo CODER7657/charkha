@@ -98,6 +98,7 @@ describe.skipIf(!canRun)("double counting, against the database", () => {
     const d = db();
     await d.delete(schema.credits);
     await d.delete(schema.decisionLog);
+    await d.delete(schema.verifications);
     await d.delete(schema.evidence);
     await d.delete(schema.matches);
     await d.insert(schema.matches).values({
@@ -117,6 +118,8 @@ describe.skipIf(!canRun)("double counting, against the database", () => {
       clientScores: EVIDENCE.clientScores,
       batch: EVIDENCE.batch,
     });
+    // The verdict the registry reads. Written by the verifier in real life.
+    await d.insert(schema.verifications).values({ ...ACCEPTED, taskId: "task_seed" });
   });
 
   /**
