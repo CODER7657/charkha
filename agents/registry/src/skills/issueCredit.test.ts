@@ -58,7 +58,7 @@ const ACCEPTED: VerifyEvidenceOutput = {
 };
 
 const ctx = { taskId: "task_1", contextId: "ctx_1", progress: () => {} };
-const input = { matchId: "mat_1", evidenceId: "evi_1", verification: ACCEPTED };
+const input = { matchId: "mat_1", evidenceId: "evi_1" };
 
 let store: ReturnType<typeof memoryStore>;
 let issueCredit: ReturnType<typeof makeIssueCredit>;
@@ -149,18 +149,17 @@ describe("unverified batches", () => {
       store = memoryStore({ matches: [MATCH], evidence: [EVIDENCE], verifications: [verification] });
       issueCredit = makeIssueCredit(store, () => issuer);
 
-      await expect(issueCredit({ ...input, verification }, ctx)).rejects.toThrow(new RegExp(verdict));
+      await expect(issueCredit(input, ctx)).rejects.toThrow(new RegExp(verdict));
 
       expect(store.credits).toHaveLength(0);
       expect(store.decisions).toHaveLength(0);
     });
   }
 
-  it("refuses when the verification is for a different evidenceId", async () => {
-    const verification = { ...ACCEPTED, evidenceId: "evi_somewhere_else" };
-    await expect(issueCredit({ ...input, verification }, ctx)).rejects.toThrow(/evidence/i);
-    expect(store.credits).toHaveLength(0);
-  });
+  /* "refuses when the verification is for a different evidenceId" lived here.
+     It is gone because it is no longer expressible: the verification is fetched
+     BY evidenceId from the store, so it cannot be for a different one. The
+     caller has no way to supply a mismatched verdict at all now. */
 
   it("refuses when the evidence is not on the match being credited", async () => {
     await expect(issueCredit({ ...input, matchId: "mat_other" }, ctx)).rejects.toThrow();
@@ -262,8 +261,6 @@ describe("the credit itself", () => {
  * verifier never accepted. Written before the fix - see issue #16.
  * ------------------------------------------------------------------ */
 describe("the verdict comes from the database", () => {
-  const forged: VerifyEvidenceOutput = { ...ACCEPTED, verdict: "accepted", charQualityScore: 1 };
-
   it("refuses a forged accepted verdict when the stored verdict is needs_review", async () => {
     // what the verifier actually decided
     store = memoryStore({
@@ -273,7 +270,7 @@ describe("the verdict comes from the database", () => {
     });
     issueCredit = makeIssueCredit(store, () => issuer);
 
-    await expect(issueCredit({ ...input, verification: forged }, ctx)).rejects.toThrow(/needs_review/);
+    await expect(issueCredit(input, ctx)).rejects.toThrow(/needs_review/);
     expect(store.credits).toHaveLength(0);
     expect(store.decisions).toHaveLength(0);
   });
@@ -286,7 +283,7 @@ describe("the verdict comes from the database", () => {
     });
     issueCredit = makeIssueCredit(store, () => issuer);
 
-    await expect(issueCredit({ ...input, verification: forged }, ctx)).rejects.toThrow(/rejected/);
+    await expect(issueCredit(input, ctx)).rejects.toThrow(/rejected/);
     expect(store.credits).toHaveLength(0);
   });
 
@@ -299,12 +296,11 @@ describe("the verdict comes from the database", () => {
     expect(store.credits).toHaveLength(0);
   });
 
-  it("refuses a request whose verification disagrees with the stored one", async () => {
-    // Same accepted verdict, inflated quality score - the cheapest forgery,
-    // because it multiplies the credit without changing the decision.
-    await expect(issueCredit({ ...input, verification: forged }, ctx)).rejects.toThrow(/does not match/i);
-    expect(store.credits).toHaveLength(0);
-  });
+  /* The tripwire this used to assert - a request whose verification disagreed
+     with the stored row - went with the field it guarded. IssueCreditInput is
+     now { matchId, evidenceId }, so that forgery is not refused, it is
+     unrepresentable. The tests below still prove the verdict comes from the
+     store rather than the caller, which was always the real guarantee. */
 
   it("credits from the stored score, whatever the request claims", async () => {
     const { credit } = await issueCredit(input, ctx);
@@ -318,23 +314,24 @@ describe("the verdict comes from the database", () => {
   });
 
   it("issues on the stored verdict alone, with no verification in the request", async () => {
-    // The shape the contract is moving to: { matchId, evidenceId }.
-    const { credit } = await issueCredit({ matchId: "mat_1", evidenceId: "evi_1" } as typeof input, ctx);
+    // The shape the contract now has.
+    const { credit } = await issueCredit({ matchId: "mat_1", evidenceId: "evi_1" }, ctx);
     expect(credit.netTonnesCo2e).toBeGreaterThan(0);
     expect(store.credits).toHaveLength(1);
   });
 
-  it("records the stored model hash and confidence in the ledger, not the request's", async () => {
-    await issueCredit(
-      { ...input, verification: { ...ACCEPTED, modelHash: "f".repeat(64), confidence: 0.01 } },
-      ctx,
-    ).catch(() => undefined);
-
-    // The forgery is refused outright, so nothing reaches the ledger at all.
-    expect(store.decisions).toHaveLength(0);
+  it("records the stored model hash and confidence in the ledger", async () => {
+    // Fresh store: a sibling in this block already credited evi_1, and the
+    // double-counting guard would refuse this one.
+    store = memoryStore({ matches: [MATCH], evidence: [EVIDENCE], verifications: [ACCEPTED] });
+    issueCredit = makeIssueCredit(store, () => issuer);
 
     await issueCredit(input, ctx);
-    expect(store.decisions.at(-1)?.modelHash).toBe(ACCEPTED.modelHash);
-    expect(store.decisions.at(-1)?.confidence).toBe(ACCEPTED.confidence);
+
+    // They can only come from the verifier's own row - there is nowhere else
+    // for them to come from now.
+    expect(store.decisions).toHaveLength(1);
+    expect(store.decisions[0]!.modelHash).toBe(ACCEPTED.modelHash);
+    expect(store.decisions[0]!.confidence).toBe(ACCEPTED.confidence);
   });
 });

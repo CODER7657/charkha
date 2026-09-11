@@ -219,10 +219,20 @@ export const CreditRecord = z.object({
 });
 export type CreditRecord = z.infer<typeof CreditRecord>;
 
+/**
+ * Deliberately does NOT carry the verdict.
+ *
+ * The registry reads it from the `verifications` row the verifier wrote. A
+ * caller-supplied verdict let anyone who could reach the gateway mint a
+ * credential for a batch the verifier never saw, at the maximum quality
+ * multiplier (#16, closed in #18).
+ *
+ * Keeping the field also forced every caller to echo the stored row byte for
+ * byte, so any transport that touched encoding broke issuance.
+ */
 export const IssueCreditInput = z.object({
   matchId: z.string(),
   evidenceId: z.string(),
-  verification: VerifyEvidenceOutput,
 });
 export const IssueCreditOutput = z.object({ credit: CreditRecord });
 

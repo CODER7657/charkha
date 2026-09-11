@@ -3,12 +3,10 @@ import type { z } from "zod";
 import type { Issuer } from "did-jwt-vc";
 import {
   computeCredit,
-  hashPayload,
   newId,
   type CreditRecord,
   type IssueCreditInput,
   type IssueCreditOutput,
-  type VerifyEvidenceOutput,
 } from "@charkha/core";
 import { getIssuer } from "../did.ts";
 import { signCreditCredential } from "../credential.ts";
@@ -48,15 +46,6 @@ export const makeIssueCredit =
     if (verification.verdict !== "accepted")
       throw new Error(`refusing to issue: verification verdict is "${verification.verdict}", not "accepted"`);
 
-    /* 2. While the contract still carries a verification, a request that
-       disagrees with the stored row is a forgery attempt, not a mismatch to
-       shrug at. Refuse it loudly. Nothing above or below reads it, so this is
-       a tripwire rather than the control - when the field goes, so does this. */
-    const claimed = (input as { verification?: VerifyEvidenceOutput }).verification;
-    if (claimed && hashPayload(claimed) !== hashPayload(verification))
-      throw new Error(
-        `the verification in this request does not match the one on record for evidence ${evidenceId} - refusing to issue`,
-      );
 
     /* 3. THE DOUBLE-COUNTING GUARD. One credit per batch of evidence, ever.
        This read is for a readable error, not for safety - it cannot hold
