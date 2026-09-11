@@ -23,6 +23,16 @@ const app = Fastify({ logger: { level: "info" } });
 const here = path.dirname(fileURLToPath(import.meta.url));
 const webDist = path.resolve(here, "../../web/dist");
 
+/* Every /api response is live state - the ledger, lots, matches, credits.
+   None of it carries validators, so with no Cache-Control a browser applies
+   heuristic caching and can serve a GET from its own cache. That is how the
+   Audit console showed a previous run's chain after switching views: the
+   component remounted and refetched correctly, and the browser answered from
+   cache. Static assets under / are untouched and still cache normally. */
+app.addHook("onSend", async (req, reply) => {
+  if (req.url.startsWith("/api/")) reply.header("cache-control", "no-store");
+});
+
 /* A request an agent refused because of its own contents is the caller's
    problem, not an outage. 500 for a bad payload sends whoever is debugging to
    the server logs for something that is in their request. */
