@@ -104,6 +104,10 @@ services:
   caddy:
     image: caddy:2-alpine
     ports: ["80:80", "443:443"]
+    environment:
+      # Unset locally -> Caddy serves on :80. Set to the real hostname on the
+      # VM and it provisions TLS on its own.
+      CHARKHA_HOSTNAME: ${CHARKHA_HOSTNAME:-}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddydata:/data
