@@ -5,10 +5,10 @@
 #
 # Caddy obtains and renews the certificate itself. No certbot, no cron.
 #
-# Left unset it falls back to :80, which is fine for a local `docker compose up`
+# Left blank, compose substitutes :80, which is fine for a local `docker compose up`
 # and NOT fine for the demo: the field view needs a secure context for the
 # camera and WebGPU, so over plain HTTP capture silently does nothing.
-{$CHARKHA_HOSTNAME::80} {
+{$CHARKHA_HOSTNAME} {
 	encode gzip
 
 	# Agents and the gateway are never exposed directly - an open gateway is an

@@ -107,7 +107,9 @@ services:
     environment:
       # Unset locally -> Caddy serves on :80. Set to the real hostname on the
       # VM and it provisions TLS on its own.
-      CHARKHA_HOSTNAME: ${CHARKHA_HOSTNAME:-}
+      # :- covers unset AND empty. .env.example ships this blank, and an
+      # empty site address makes Caddy exit 1 with a parse error.
+      CHARKHA_HOSTNAME: ${CHARKHA_HOSTNAME:-:80}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddydata:/data

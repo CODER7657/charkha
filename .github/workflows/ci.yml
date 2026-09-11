@@ -153,11 +153,68 @@ jobs:
           done
           node scripts/smoke.mjs
 
+  # Building the image proves it compiles. It does NOT prove the stack comes
+  # up: the first real deploy died because `migrate` could not resolve a
+  # dependency that was hoisted on a dev machine and absent in the container,
+  # and a green "docker build" said nothing about it. So this job now runs the
+  # whole compose stack the way the VM does, and makes a real call through it.
   docker:
-    name: docker build
+    name: compose stack
     runs-on: ubuntu-latest
     needs: [guard]
     steps:
       - uses: actions/checkout@v4
+
       - name: build image
         run: docker build -t charkha:ci .
+
+      - name: generate a throwaway .env
+        run: |
+          cp .env.example .env
+          PG=$(openssl rand -hex 16)
+          sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$PG|" .env
+          sed -i "s|^DATABASE_URL=.*|DATABASE_URL=postgres://charkha:$PG@db:5432/charkha|" .env
+          sed -i "s|^A2A_JWT_SECRET=.*|A2A_JWT_SECRET=$(openssl rand -hex 32)|" .env
+          sed -i "s|^REGISTRY_DID_SEED=.*|REGISTRY_DID_SEED=$(openssl rand -hex 32)|" .env
+
+      - name: bring the stack up
+        run: docker compose up -d --wait --wait-timeout 300
+
+      - name: migrate must have succeeded
+        run: |
+          # docker inspect, not sed over compose ps - no regex, no escaping to
+          # get wrong, and it fails loudly if the container is missing.
+          cid=$(docker compose ps -a -q migrate)
+          if [ -z "$cid" ]; then echo "::error::no migrate container"; exit 1; fi
+          code=$(docker inspect -f '{{.State.ExitCode}}' "$cid")
+          echo "migrate exit code: $code"
+          if [ "$code" != "0" ]; then
+            echo "::error::migrate did not exit 0 - the schema push or the seed failed"
+            docker compose logs migrate
+            exit 1
+          fi
+
+      - name: a skill is reachable through the deployed stack
+        run: node scripts/smoke.mjs http://localhost:4000
+
+      - name: field view assets are served, not swallowed by the SPA fallback
+        run: |
+          set -e
+          # The gateway serves index.html for anything it does not recognise, so
+          # a missing asset becomes HTML and onnxruntime fails with a parse
+          # error that looks nothing like "file not found".
+          for path in /models/char-quality.onnx /ort/ort-wasm-simd-threaded.asyncify.wasm; do
+            ct=$(curl -sS -o /dev/null -w '%{content_type}' "http://localhost:4000$path")
+            echo "$path -> $ct"
+            case "$ct" in
+              text/html*) echo "::error::$path fell through to the SPA - the asset is missing from dist"; exit 1 ;;
+            esac
+          done
+
+      - name: logs on failure
+        if: failure()
+        run: docker compose logs --tail 80
+
+      - name: tear down
+        if: always()
+        run: docker compose down -v
