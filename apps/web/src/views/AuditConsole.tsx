@@ -264,7 +264,11 @@ const CredentialPanel = () => {
         import("did-resolver"),
         import("key-did-resolver"),
       ]);
-      const resolver = new Resolver(keyDidResolver.getResolver());
+      type Registry = ConstructorParameters<typeof Resolver>[0];
+      // key-did-resolver does not declare did-resolver as a dependency, so its
+      // types can resolve against a different copy than did-jwt-vc's. Same
+      // shape at runtime.
+      const resolver = new Resolver(keyDidResolver.getResolver() as Registry);
       const result = await verifyCredential(credit.credentialJwt, resolver);
       setCheck(
         result.verified

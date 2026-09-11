@@ -1,5 +1,5 @@
 import { ed25519 } from "@noble/curves/ed25519.js";
-import { Resolver } from "did-resolver";
+import { Resolver, type ResolverRegistry } from "did-resolver";
 import { getResolver } from "key-did-resolver";
 import type { Issuer } from "did-jwt-vc";
 
@@ -86,4 +86,7 @@ export const getIssuer = (): Issuer => {
 };
 
 /** Resolver for did:key. This is the verification side - no network, no registry. */
-export const didResolver = new Resolver(getResolver());
+// key-did-resolver does not declare did-resolver as a dependency, so its types
+// can resolve against a different copy than did-jwt-vc's. Same shape at
+// runtime; the cast is purely to reconcile the two declarations.
+export const didResolver = new Resolver(getResolver() as ResolverRegistry);

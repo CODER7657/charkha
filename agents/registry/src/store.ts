@@ -13,6 +13,36 @@ import { GENESIS_HASH, type CreditRecord, type DecisionRecord, type FieldEvidenc
 
 export type AppendDecisionArgs = Parameters<typeof appendDecision>[0];
 
+/**
+ * Thrown when the database refuses a second credit for the same evidence.
+ *
+ * The pre-check in issueCredit is for a readable error, not for safety: it
+ * reads and then inserts, so two concurrent requests can both pass it. The
+ * unique index on credits.evidence_id is what actually holds the guarantee,
+ * across concurrent requests and across registry processes alike.
+ */
+export class DuplicateEvidenceError extends Error {
+  constructor(readonly evidenceId: string) {
+    super(`evidence ${evidenceId} has already been credited`);
+    this.name = "DuplicateEvidenceError";
+  }
+}
+
+/**
+ * Postgres unique_violation (23505) on a named constraint.
+ *
+ * drizzle wraps the driver error in its own "Failed query" Error, so the pg
+ * fields live on `cause` rather than on the error we are handed. Walk the
+ * chain rather than assuming a depth.
+ */
+const isUniqueViolation = (err: unknown, constraint: string): boolean => {
+  for (let e: unknown = err; e != null; e = (e as { cause?: unknown }).cause) {
+    const pg = e as { code?: string; constraint?: string };
+    if (pg.code === "23505" && String(pg.constraint ?? "").includes(constraint)) return true;
+  }
+  return false;
+};
+
 export type RegistryStore = {
   findMatch: (matchId: string) => Promise<Match | null>;
   findEvidence: (evidenceId: string) => Promise<FieldEvidence | null>;
@@ -20,6 +50,7 @@ export type RegistryStore = {
   findCreditById: (creditId: string) => Promise<CreditRecord | null>;
   /** Issued credits in issuance order. The position in this list is the status-list index. */
   listCredits: () => Promise<CreditRecord[]>;
+  /** Throws DuplicateEvidenceError if this evidence already has a credit. */
   insertCredit: (credit: CreditRecord, taskId: string) => Promise<void>;
   /** Retirement is the only state change a credit ever undergoes. */
   markRetired: (creditId: string) => Promise<CreditRecord>;
@@ -89,9 +120,14 @@ export const dbStore = (): RegistryStore => ({
   },
 
   insertCredit: async (credit, taskId) => {
-    await db()
-      .insert(schema.credits)
-      .values({ ...credit, issuedAt: new Date(credit.issuedAt), taskId });
+    try {
+      await db()
+        .insert(schema.credits)
+        .values({ ...credit, issuedAt: new Date(credit.issuedAt), taskId });
+    } catch (err) {
+      if (isUniqueViolation(err, "credit_evidence_uq")) throw new DuplicateEvidenceError(credit.evidenceId);
+      throw err;
+    }
   },
 
   markRetired: async (creditId) => {

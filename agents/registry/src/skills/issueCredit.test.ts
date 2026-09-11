@@ -3,6 +3,7 @@ import { verifyCredential } from "did-jwt-vc";
 import { computeCredit, type FieldEvidence, type Match, type VerifyEvidenceOutput } from "@charkha/core";
 import { didResolver, issuerFromSeed } from "../did.ts";
 import { memoryStore } from "../memoryStore.ts";
+import { DuplicateEvidenceError } from "../store.ts";
 import { makeIssueCredit } from "./issueCredit.ts";
 
 /* ------------------------------------------------------------------ *
@@ -89,6 +90,47 @@ describe("double counting", () => {
   it("names the existing credit in the error, so the operator can find it", async () => {
     const first = await issueCredit(input, ctx);
     await expect(issueCredit(input, ctx)).rejects.toThrow(first.credit.creditId);
+  });
+
+  /**
+   * The pre-check cannot see a request that has not committed yet, so the
+   * database is what actually refuses. This drives that path directly: the
+   * lookup says "free" and the insert says "taken", exactly as a lost race
+   * looks from inside one of the two requests.
+   */
+  it("refuses when it loses the race to a concurrent request", async () => {
+    await issueCredit(input, ctx);
+
+    // The loser's lookup sees nothing - the winner had not committed when it
+    // looked - so it runs all the way to the insert, which the store refuses.
+    const loser = makeIssueCredit({ ...store, findCreditByEvidenceId: async () => null }, () => issuer);
+    const attempt = loser(input, { ...ctx, taskId: "task_racing" });
+
+    await expect(attempt).rejects.toThrow(DuplicateEvidenceError);
+    expect(store.credits).toHaveLength(1);
+    expect(store.decisions).toHaveLength(1);
+  });
+
+  it("names the winning credit once it can read it back", async () => {
+    const winner = (await issueCredit(input, ctx)).credit;
+
+    // Same lost race, but by the time we report it the winner is visible.
+    let looked = false;
+    const loser = makeIssueCredit(
+      {
+        ...store,
+        findCreditByEvidenceId: async (evidenceId) => {
+          if (!looked) {
+            looked = true;
+            return null;
+          }
+          return store.findCreditByEvidenceId(evidenceId);
+        },
+      },
+      () => issuer,
+    );
+
+    await expect(loser(input, ctx)).rejects.toThrow(winner.creditId);
   });
 
   it("still refuses when the second attempt arrives on a different task", async () => {

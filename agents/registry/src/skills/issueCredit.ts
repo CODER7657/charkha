@@ -4,7 +4,7 @@ import type { Issuer } from "did-jwt-vc";
 import { computeCredit, newId, type CreditRecord, type IssueCreditInput, type IssueCreditOutput } from "@charkha/core";
 import { getIssuer } from "../did.ts";
 import { signCreditCredential } from "../credential.ts";
-import { dbStore, type RegistryStore } from "../store.ts";
+import { DuplicateEvidenceError, dbStore, type RegistryStore } from "../store.ts";
 
 /**
  * OWNER: Ayush
@@ -33,12 +33,13 @@ export const makeIssueCredit =
     if (verification.verdict !== "accepted")
       throw new Error(`refusing to issue: verification verdict is "${verification.verdict}", not "accepted"`);
 
-    /* 2. THE DOUBLE-COUNTING GUARD. One credit per batch of evidence, ever. */
+    /* 2. THE DOUBLE-COUNTING GUARD. One credit per batch of evidence, ever.
+       This read is for a readable error, not for safety - it cannot hold
+       against a concurrent request. The unique index on credits.evidence_id
+       is the guarantee; alreadyCredited() below reports either outcome the
+       same way. */
     const existing = await store.findCreditByEvidenceId(evidenceId);
-    if (existing)
-      throw new Error(
-        `evidence ${evidenceId} has already been credited as ${existing.creditId} (${existing.netTonnesCo2e} tCO2e, ${existing.status}) - refusing to issue a second credit`,
-      );
+    if (existing) throw alreadyCredited(existing);
 
     const evidence = await store.findEvidence(evidenceId);
     if (!evidence) throw new Error(`no such evidence: ${evidenceId}`);
@@ -97,8 +98,19 @@ export const makeIssueCredit =
       issuerDid: issuer.did,
     };
 
-    /* 5. store it, then write exactly one decision */
-    await store.insertCredit(credit, ctx.taskId);
+    /* 5. store it, then write exactly one decision.
+       If a concurrent request inserted first, the database refuses this one
+       and we report it exactly as the sequential case does. No decision is
+       appended for a credit that does not exist. */
+    try {
+      await store.insertCredit(credit, ctx.taskId);
+    } catch (err) {
+      if (err instanceof DuplicateEvidenceError) {
+        const winner = await store.findCreditByEvidenceId(evidenceId);
+        throw winner ? alreadyCredited(winner) : err;
+      }
+      throw err;
+    }
     await store.appendDecision({
       taskId: ctx.taskId,
       agent: "registry",
@@ -112,5 +124,10 @@ export const makeIssueCredit =
 
     return { credit };
   };
+
+const alreadyCredited = (existing: CreditRecord): Error =>
+  new Error(
+    `evidence ${existing.evidenceId} has already been credited as ${existing.creditId} (${existing.netTonnesCo2e} tCO2e, ${existing.status}) - refusing to issue a second credit`,
+  );
 
 export const issueCredit = makeIssueCredit(dbStore(), getIssuer);
