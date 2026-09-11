@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   DEFAULT_BBOX,
+  DEFAULT_SOURCE,
   buildFirmsUrl,
   defaultTonnesFor,
   detectionIdOf,
@@ -17,7 +18,7 @@ import {
   toIsoUtc,
 } from "./firms.ts";
 
-/** A real VIIRS_SNPP_NRT area-API response shape, header and column order. */
+/** A real VIIRS area-API response shape, header and column order. */
 const HEADER =
   "country_id,latitude,longitude,bright_ti4,scan,track,acq_date,acq_time,satellite,instrument,confidence,version,bright_ti5,frp,daynight";
 
@@ -54,9 +55,9 @@ describe("FIRMS url", () => {
      "Invalid area. Expects: [west,south,east,north]", so the commas must reach
      it intact. Verified against the live endpoint. */
   it("puts the key, source, bbox and day range in the documented order", () => {
-    const url = buildFirmsUrl({ mapKey: "KEY123", source: "VIIRS_SNPP_NRT", bbox: "73.8,29.5,77.5,32.2", dayRange: 2 });
+    const url = buildFirmsUrl({ mapKey: "KEY123", source: "VIIRS_NOAA20_NRT", bbox: "73.8,29.5,77.5,32.2", dayRange: 2 });
     expect(url).toBe(
-      "https://firms.modaps.eosdis.nasa.gov/api/area/csv/KEY123/VIIRS_SNPP_NRT/73.8,29.5,77.5,32.2/2",
+      "https://firms.modaps.eosdis.nasa.gov/api/area/csv/KEY123/VIIRS_NOAA20_NRT/73.8,29.5,77.5,32.2/2",
     );
   });
 
@@ -71,7 +72,8 @@ describe("FIRMS url", () => {
   });
 
   it("falls back to the Punjab/Haryana defaults", () => {
-    expect(buildFirmsUrl({ mapKey: "K" })).toContain("VIIRS_SNPP_NRT");
+    expect(buildFirmsUrl({ mapKey: "K" })).toContain(DEFAULT_SOURCE);
+    expect(buildFirmsUrl({ mapKey: "K" })).not.toContain("SNPP");
     expect(buildFirmsUrl({ mapKey: "K" })).toContain(`/${DEFAULT_BBOX}/`);
   });
 

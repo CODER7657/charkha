@@ -1,8 +1,15 @@
 # Bundled sample feed
 
-`firms-sample.csv` is a **synthetic** response in the exact wire format of the
-NASA FIRMS area API (`VIIRS_SNPP_NRT`): same header, same column order, same
-value conventions — `acq_time` as `HHMM`, confidence as `l`/`n`/`h`, `frp` in MW.
+`firms-sample.csv` is a **synthetic** response in the wire format of the NASA
+FIRMS area API: same value conventions — `acq_time` as `HHMM`, confidence as
+`l`/`n`/`h`, `frp` in MW.
+
+It carries a leading `country_id` column that the live `VIIRS_NOAA20_NRT`
+response does **not** have. That difference is deliberate and harmless, and it
+is worth knowing why: the parser reads by header **name**, never by column
+position, so the two shapes are interchangeable. Verified against the live feed
+— a parser keyed on position would have shifted every field by one and silently
+corrupted every lot.
 
 It is **not** a recorded NASA response, and nothing in the demo presents it as
 one. Detections are placed in the Punjab/Haryana residue belt around the seeded
