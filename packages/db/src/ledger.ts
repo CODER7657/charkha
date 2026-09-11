@@ -39,7 +39,7 @@ export const appendDecision = async (args: {
 
   return d.transaction(async (tx) => {
     // Blocks until we hold the ledger. Released at transaction end.
-    await tx.execute(sql`SELECT pg_advisory_xact_lock(${LEDGER_LOCK_KEY})`);
+    // EXPERIMENT: lock deliberately removed to prove the test catches it.
 
     const [last] = await tx.select().from(decisionLog).orderBy(desc(decisionLog.seq)).limit(1);
 
