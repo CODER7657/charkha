@@ -60,7 +60,13 @@ export const ListLotsOutput = z.object({ lots: z.array(ResidueLot) });
 
 export const IngestBurnsInput = z.object({
   bbox: z.string().optional(),
-  dayRange: z.number().int().min(1).max(10).optional(),
+  /**
+   * FIRMS caps the area API's DAY_RANGE at 5 - the docs say "1 .. 5" and the
+   * request form offers nothing higher. This was max(10), a bound we invented:
+   * a 7 would have passed our validation and then been refused upstream, which
+   * turns a clear "invalid input" into a confusing feed error.
+   */
+  dayRange: z.number().int().min(1).max(5).optional(),
 });
 export const IngestBurnsOutput = z.object({
   fetched: z.number().int(),
