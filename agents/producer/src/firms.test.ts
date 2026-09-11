@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  DEFAULT_BBOX,
   buildFirmsUrl,
   defaultTonnesFor,
   detectionIdOf,
@@ -47,15 +48,47 @@ const row = (over: Record<string, string> = {}): string => {
 const csv = (...rows: string[]): string => [HEADER, ...rows].join("\n");
 
 describe("FIRMS url", () => {
+  /* This test used to assert the percent-encoded bbox the code produced, which
+     is how a broken URL survived a green suite: the test encoded the same wrong
+     assumption as the code. FIRMS answers an encoded bbox with HTTP 400
+     "Invalid area. Expects: [west,south,east,north]", so the commas must reach
+     it intact. Verified against the live endpoint. */
   it("puts the key, source, bbox and day range in the documented order", () => {
     const url = buildFirmsUrl({ mapKey: "KEY123", source: "VIIRS_SNPP_NRT", bbox: "73.8,29.5,77.5,32.2", dayRange: 2 });
     expect(url).toBe(
-      "https://firms.modaps.eosdis.nasa.gov/api/area/csv/KEY123/VIIRS_SNPP_NRT/73.8%2C29.5%2C77.5%2C32.2/2",
+      "https://firms.modaps.eosdis.nasa.gov/api/area/csv/KEY123/VIIRS_SNPP_NRT/73.8,29.5,77.5,32.2/2",
     );
+  });
+
+  it("leaves the bbox commas alone - an encoded comma is a 400", () => {
+    const url = buildFirmsUrl({ mapKey: "K", bbox: "73.8,29.5,77.5,32.2" });
+    expect(url).toContain("/73.8,29.5,77.5,32.2/");
+    expect(url).not.toContain("%2C");
+  });
+
+  it("handles a negative bbox, as the docs' South America example has", () => {
+    expect(buildFirmsUrl({ mapKey: "K", bbox: "-85,-57,-32,14" })).toContain("/-85,-57,-32,14/");
   });
 
   it("falls back to the Punjab/Haryana defaults", () => {
     expect(buildFirmsUrl({ mapKey: "K" })).toContain("VIIRS_SNPP_NRT");
+    expect(buildFirmsUrl({ mapKey: "K" })).toContain(`/${DEFAULT_BBOX}/`);
+  });
+
+  /* The bbox is validated rather than escaped, so it has to refuse anything
+     that could bend the request onto a different path. */
+  it("refuses a bbox that is not four numbers", () => {
+    expect(() => buildFirmsUrl({ mapKey: "K", bbox: "73.8,29.5,77.5" })).toThrow(/west,south,east,north/);
+    expect(() => buildFirmsUrl({ mapKey: "K", bbox: "world" })).toThrow(/west,south,east,north/);
+  });
+
+  it("refuses a bbox carrying a path separator", () => {
+    expect(() => buildFirmsUrl({ mapKey: "K", bbox: "73.8,29.5,77.5,32.2/../../evil" })).toThrow();
+  });
+
+  it("refuses a nonsense day range", () => {
+    expect(() => buildFirmsUrl({ mapKey: "K", dayRange: 0 })).toThrow(/positive integer/);
+    expect(() => buildFirmsUrl({ mapKey: "K", dayRange: Number.NaN })).toThrow(/positive integer/);
   });
 });
 
