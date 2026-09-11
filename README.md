@@ -15,12 +15,24 @@ Detection is already a solved problem. This is what happens *after* detection.
 
 ```bash
 pnpm install
-cp .env.example .env          # then fill FIRMS_MAP_KEY
+pnpm setup:env                # writes .env with fresh random secrets
+# then paste your free FIRMS_MAP_KEY into .env
 docker compose up -d db
-pnpm db:push
-pnpm seed
+pnpm db:push && pnpm seed
 pnpm dev
 ```
+
+There are no default passwords in this repo on purpose - a default is a value
+that quietly reaches the VPS. `pnpm setup:env` fills the blanks for you.
+
+Whole stack in containers (what the demo runs on):
+
+```bash
+docker compose up -d          # db, migrate, four agents, gateway, caddy
+```
+
+`migrate` applies the schema and seeds conversion units, and the agents wait for
+it to finish rather than racing an empty database.
 
 Open <http://localhost:5173>. The API is on `:4000`, agents on `:4001–:4004`.
 

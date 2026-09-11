@@ -3,7 +3,11 @@ services:
     image: postgres:17-alpine
     environment:
       POSTGRES_USER: charkha
-      POSTGRES_PASSWORD: charkha
+      # No default on purpose - a default password is one that reaches the VPS.
+      # Unset means compose refuses to start; run pnpm setup:env first.
+      # The bare :? carries no message text, because a secret scanner reads
+      # anything after the colon as the value itself.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
       POSTGRES_DB: charkha
     ports: ["5432:5432"]
     volumes: ["pgdata:/var/lib/postgresql/data"]
@@ -13,66 +17,89 @@ services:
       timeout: 3s
       retries: 10
 
+  migrate:
+    build: { context: ., dockerfile: Dockerfile }
+    command: sh -c "pnpm db:push && pnpm seed"
+    env_file: [.env]
+    environment:
+      DATABASE_URL: postgres://charkha:${POSTGRES_PASSWORD}@db:5432/charkha
+    depends_on: { db: { condition: service_healthy } }
+    restart: "no"
+
   producer:
     build: { context: ., dockerfile: Dockerfile }
     command: pnpm -F @charkha/agent-producer start
     env_file: [.env]
     environment:
-      DATABASE_URL: postgres://charkha:charkha@db:5432/charkha
+      DATABASE_URL: postgres://charkha:${POSTGRES_PASSWORD}@db:5432/charkha
       PRODUCER_URL: http://producer:4001
       MATCHMAKER_URL: http://matchmaker:4002
       VERIFIER_URL: http://verifier:4003
       REGISTRY_URL: http://registry:4004
-    depends_on: { db: { condition: service_healthy } }
+    depends_on:
+      db: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
 
   matchmaker:
     build: { context: ., dockerfile: Dockerfile }
     command: pnpm -F @charkha/agent-matchmaker start
     env_file: [.env]
     environment:
-      DATABASE_URL: postgres://charkha:charkha@db:5432/charkha
+      DATABASE_URL: postgres://charkha:${POSTGRES_PASSWORD}@db:5432/charkha
       PRODUCER_URL: http://producer:4001
       MATCHMAKER_URL: http://matchmaker:4002
       VERIFIER_URL: http://verifier:4003
       REGISTRY_URL: http://registry:4004
-    depends_on: { db: { condition: service_healthy } }
+    depends_on:
+      db: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
 
   verifier:
     build: { context: ., dockerfile: Dockerfile }
     command: pnpm -F @charkha/agent-verifier start
     env_file: [.env]
     environment:
-      DATABASE_URL: postgres://charkha:charkha@db:5432/charkha
+      DATABASE_URL: postgres://charkha:${POSTGRES_PASSWORD}@db:5432/charkha
       PRODUCER_URL: http://producer:4001
       MATCHMAKER_URL: http://matchmaker:4002
       VERIFIER_URL: http://verifier:4003
       REGISTRY_URL: http://registry:4004
-    depends_on: { db: { condition: service_healthy } }
+    depends_on:
+      db: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
 
   registry:
     build: { context: ., dockerfile: Dockerfile }
     command: pnpm -F @charkha/agent-registry start
     env_file: [.env]
     environment:
-      DATABASE_URL: postgres://charkha:charkha@db:5432/charkha
+      DATABASE_URL: postgres://charkha:${POSTGRES_PASSWORD}@db:5432/charkha
       PRODUCER_URL: http://producer:4001
       MATCHMAKER_URL: http://matchmaker:4002
       VERIFIER_URL: http://verifier:4003
       REGISTRY_URL: http://registry:4004
-    depends_on: { db: { condition: service_healthy } }
+    depends_on:
+      db: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
 
   gateway:
     build: { context: ., dockerfile: Dockerfile }
     command: pnpm -F @charkha/gateway start
     env_file: [.env]
     environment:
-      DATABASE_URL: postgres://charkha:charkha@db:5432/charkha
+      DATABASE_URL: postgres://charkha:${POSTGRES_PASSWORD}@db:5432/charkha
       PRODUCER_URL: http://producer:4001
       MATCHMAKER_URL: http://matchmaker:4002
       VERIFIER_URL: http://verifier:4003
       REGISTRY_URL: http://registry:4004
     ports: ["4000:4000"]
     depends_on: [producer, matchmaker, verifier, registry]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
 
   caddy:
     image: caddy:2-alpine

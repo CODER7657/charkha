@@ -60,6 +60,31 @@ jobs:
   verify:
     name: verify
     runs-on: ubuntu-latest
+
+    # A real Postgres, because the ledger guarantee (serialised appends under
+    # an advisory lock) is enforced by Postgres, not by our code. Testing it
+    # against a mock would prove nothing.
+    services:
+      db:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: charkha
+          POSTGRES_DB: charkha
+          # Throwaway container, reachable only from this job, torn down with
+          # it. Trust auth means there is no password here at all - nothing to
+          # leak and nothing for a secret scanner to flag.
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U charkha"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://charkha@localhost:5432/charkha
+      A2A_JWT_SECRET: ci_only
+
     steps:
       - uses: actions/checkout@v4
 
@@ -79,6 +104,9 @@ jobs:
 
       - name: typecheck
         run: pnpm exec tsc --noEmit -p tsconfig.base.json
+
+      - name: apply schema
+        run: pnpm db:push
 
       - name: test
         run: pnpm exec vitest run --reporter=verbose
@@ -100,8 +128,6 @@ jobs:
             done
             echo "ok - :$p healthy"
           done
-        env:
-          A2A_JWT_SECRET: ci_only
 
       - name: agent cards are served
         run: |
