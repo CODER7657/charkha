@@ -23,6 +23,10 @@ import "./OperatorMap.css";
 const BELT_CENTRE: [number, number] = [30.42, 75.95];
 const BELT_ZOOM = 8;
 
+/** Matches RunMatchingInput's default. A lot further than this off the road
+    network costs more in diesel than the residue is worth collecting. */
+const MAX_RADIUS_KM = 60;
+
 type Envelope<T> = { taskId?: string; output: T };
 
 const get = async <T,>(path: string): Promise<T> => {
@@ -72,7 +76,6 @@ export const OperatorMap = () => {
   const [selected, setSelected] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
-  const [feedNote, setFeedNote] = useState("");
   const [unitsMissing, setUnitsMissing] = useState(false);
 
   const loadLots = useCallback(async () => {
@@ -96,7 +99,7 @@ export const OperatorMap = () => {
   }, []);
 
   const ingest = useCallback(async () => {
-    const res = await post<Envelope<{ lotsCreated: number }> & { note?: string }>("/ingest", {});
+    const res = await post<Envelope<{ lotsCreated: number }>>("/ingest", {});
     await loadLots();
     return res;
   }, [loadLots]);
@@ -126,12 +129,12 @@ export const OperatorMap = () => {
     };
   }, [ingest, loadLots, loadUnits]);
 
-  const run = async (fn: () => Promise<unknown>, label: string) => {
+  /** Runs an action, and reports either what it did or why it could not. */
+  const run = async (fn: () => Promise<string>, label: string) => {
     setBusy(true);
     setMsg(`${label}...`);
     try {
-      await fn();
-      setMsg(`${label} done`);
+      setMsg(await fn());
     } catch (e) {
       setMsg(e instanceof Error ? e.message : String(e));
     } finally {
@@ -141,20 +144,22 @@ export const OperatorMap = () => {
 
   const onIngest = () =>
     run(async () => {
-      const res = await ingest();
-      if (typeof res.note === "string") setFeedNote(res.note);
+      const created = (await ingest()).output?.lotsCreated ?? 0;
+      return created === 0 ? "No new detections" : `${created} new lots`;
     }, "Pull detections");
 
   const onMatch = () =>
     run(async () => {
       const res = await post<Envelope<{ matches: Match[]; unmatchedLotIds: string[] }>>("/match", {
-        maxRadiusKm: 60,
+        maxRadiusKm: MAX_RADIUS_KM,
       });
       const next = res.output?.matches ?? [];
+      const unplaced = res.output?.unmatchedLotIds ?? [];
       setMatches(next);
-      setUnmatched(res.output?.unmatchedLotIds ?? []);
+      setUnmatched(unplaced);
       setSelected(next[0]?.matchId ?? null);
       await loadLots();
+      return `${next.length} matched, ${unplaced.length} unplaced`;
     }, "Run matching");
 
   const lotById = useMemo(() => new Map(lots.map((l) => [l.lotId, l])), [lots]);
@@ -209,9 +214,6 @@ export const OperatorMap = () => {
         <Stat label="Transport debit" value={n1.format(totals.debit)} unit="kgCO₂e" />
       </div>
 
-      {feedNote ? (
-        <p className={feedNote.includes("live FIRMS feed") ? "origin" : "origin warn"}>{feedNote}</p>
-      ) : null}
       {unitsMissing ? (
         <p className="origin warn">
           Conversion units are not being served by the gateway yet, so the map shows detections only.
@@ -347,8 +349,8 @@ export const OperatorMap = () => {
 
           {unmatched.length > 0 ? (
             <p className="empty">
-              {unmatched.length} lot{unmatched.length === 1 ? "" : "s"} could not be placed within 60 km
-              of a unit with capacity.
+              {unmatched.length} lot{unmatched.length === 1 ? "" : "s"} could not be placed within{" "}
+              {MAX_RADIUS_KM} km of a unit with capacity.
             </p>
           ) : null}
         </aside>

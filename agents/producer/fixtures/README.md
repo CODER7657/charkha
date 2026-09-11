@@ -16,9 +16,13 @@ live feed  ->  newest file in data/firms-cache/  ->  this file
 ```
 
 So the moment the agent runs once with a real key, `data/firms-cache/` holds a
-genuine response and that is what the fallback serves instead. The operator
-view always renders which of the three it used — we never show sample data as
-if it were live.
+genuine response and that is what the fallback serves instead.
+
+Which of the three was used is reported on every run through `ctx.progress()`,
+so it is in the task's event stream and in the agent log. It is **not** yet on
+the operator view: `IngestBurnsOutput` has no field for it, and widening a
+contract is a separate one-file PR. Until that lands, do not read a populated
+map as proof that the live feed answered — check the progress line.
 
 Two rows carry `confidence=l` on purpose: they exercise the low-confidence
 filter, which refuses to create a residue lot from a detection the satellite

@@ -101,6 +101,10 @@ export const toIsoUtc = (acqDate: string, acqTime: string): string | null => {
  */
 export const isLowConfidence = (confidence: string): boolean => {
   const c = confidence.trim().toLowerCase();
+  // Only refuse what is positively marked low. A blank field is a feed we do
+  // not understand, not a detection we know to be weak - and Number("") is 0,
+  // which would otherwise silently reject every row.
+  if (c === "") return false;
   if (c === "l" || c === "low") return true;
   const n = Number(c);
   return Number.isFinite(n) && n < 30;

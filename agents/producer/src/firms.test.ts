@@ -20,7 +20,7 @@ import {
 const HEADER =
   "country_id,latitude,longitude,bright_ti4,scan,track,acq_date,acq_time,satellite,instrument,confidence,version,bright_ti5,frp,daynight";
 
-const row = (over: Partial<Record<string, string>> = {}): string => {
+const row = (over: Record<string, string> = {}): string => {
   const cells: Record<string, string> = {
     country_id: "IND",
     latitude: "30.8412",
@@ -127,6 +127,12 @@ describe("confidence", () => {
     expect(isLowConfidence("n")).toBe(false);
     expect(isLowConfidence("h")).toBe(false);
     expect(isLowConfidence("87")).toBe(false);
+  });
+  it("does not read a blank confidence as zero", () => {
+    // Number("") is 0, which would quietly reject every row in a feed that
+    // happened to omit the column.
+    expect(isLowConfidence("")).toBe(false);
+    expect(isLowConfidence("   ")).toBe(false);
   });
 });
 
