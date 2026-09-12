@@ -2,7 +2,16 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    include: ["packages/**/*.test.ts", "agents/**/*.test.ts", "apps/**/*.test.{ts,tsx}"],
+    /* scripts/ is in here because the seed is reference data the map depends
+       on, not a throwaway: seed-units.test.ts is what stops the FIRMS bbox and
+       the conversion units drifting apart. A test file that the runner does
+       not collect is worse than no test file. */
+    include: [
+      "packages/**/*.test.ts",
+      "agents/**/*.test.ts",
+      "apps/**/*.test.{ts,tsx}",
+      "scripts/**/*.test.ts",
+    ],
     environment: "node",
     /* Loads the repo-root .env. Without it DATABASE_URL was absent unless a
        developer exported it by hand, and every database-backed suite skipped

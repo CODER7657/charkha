@@ -18,3 +18,7 @@ ml/models/*.onnx
 !ml/models/baseline-*.onnx
 data/firms-cache/
 .vite/
+
+# Presentation artefacts are built locally and sent directly, not versioned.
+Charkha-HashHawks-*.pptx
+Charkha-HashHawks-*.pdf
