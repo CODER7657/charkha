@@ -321,44 +321,7 @@
   .operator .board {
     grid-template-columns: minmax(0, 1fr);
   }
-  /* Match radius. A segmented control, not a dropdown: the value the next
-   round will use has to stay readable on screen at projector distance, and a
-   collapsed <select> hides it behind a click. */
-.operator .radius {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: 4px;
-}
-
-.operator .radius-label {
-  color: var(--muted);
-  font-size: 13px;
-  margin-right: 2px;
-}
-
-.operator .radius-step {
-  padding: 7px 11px;
-  font-size: 13.5px;
-  border-radius: 3px;
-  font-variant-numeric: tabular-nums;
-}
-
-/* The selected step differs by weight, background AND border - never by hue
-   alone. A projector crushes contrast, and an accent-coloured outline on a
-   dark button is the first thing to disappear in a bright room. */
-.operator .radius-step.on {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #0f1211;
-  font-weight: 600;
-}
-
-.operator .radius-step.on:hover:not(:disabled) {
-  border-color: var(--accent);
-}
-
-.operator .strip {
+  .operator .strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .operator .map-wrap {
