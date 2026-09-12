@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CircleMarker, MapContainer, Marker, Polyline, Popup, TileLayer } from "react-leaflet";
 import L from "leaflet";
 import type { ConversionUnit, FeedOrigin, Match, ResidueLot } from "@charkha/core";
+import { DEFAULT_RADIUS_KM, RADIUS_OPTIONS, summarise, unplacedMessage } from "./operator/summary.ts";
 import "leaflet/dist/leaflet.css";
 import "./OperatorMap.css";
 
@@ -22,10 +23,6 @@ import "./OperatorMap.css";
 /** Punjab/Haryana residue belt - the bbox the producer pulls. */
 const BELT_CENTRE: [number, number] = [30.42, 75.95];
 const BELT_ZOOM = 8;
-
-/** Matches RunMatchingInput's default. A lot further than this off the road
-    network costs more in diesel than the residue is worth collecting. */
-const MAX_RADIUS_KM = 60;
 
 type Envelope<T> = { taskId?: string; output: T };
 
@@ -81,6 +78,13 @@ export const OperatorMap = () => {
   const [msg, setMsg] = useState("");
   const [unitsMissing, setUnitsMissing] = useState(false);
   const [feed, setFeed] = useState<{ origin: FeedOrigin; note: string } | null>(null);
+  /* One value drives the request, the strip and the unplaced sentence. The
+     matchmaker also quotes the radius it was given in each per-lot reason, so
+     if these could drift the screen would contradict the ledger. */
+  const [radiusKm, setRadiusKm] = useState<number>(DEFAULT_RADIUS_KM);
+  /* The radius the LAST round actually ran at. Changing the control must not
+     retroactively relabel a result that came from a different radius. */
+  const [ranAtKm, setRanAtKm] = useState<number>(DEFAULT_RADIUS_KM);
 
   const loadLots = useCallback(async () => {
     const res = await get<Envelope<{ lots: ResidueLot[] }>>("/lots");
@@ -157,15 +161,16 @@ export const OperatorMap = () => {
   const onMatch = () =>
     run(async () => {
       const res = await post<Envelope<{ matches: Match[]; unmatchedLotIds: string[] }>>("/match", {
-        maxRadiusKm: MAX_RADIUS_KM,
+        maxRadiusKm: radiusKm,
       });
       const next = res.output?.matches ?? [];
       const unplaced = res.output?.unmatchedLotIds ?? [];
       setMatches(next);
       setUnmatched(unplaced);
       setSelected(next[0]?.matchId ?? null);
+      setRanAtKm(radiusKm);
       await loadLots();
-      return `${next.length} matched, ${unplaced.length} unplaced`;
+      return `${next.length} matched, ${unplaced.length} unplaced at ${radiusKm} km`;
     }, "Run matching");
 
   const lotById = useMemo(() => new Map(lots.map((l) => [l.lotId, l])), [lots]);
@@ -182,22 +187,7 @@ export const OperatorMap = () => {
     [matches, lotById, unitById],
   );
 
-  const totals = useMemo(() => {
-    const listed = lots.filter((l) => l.status === "listed");
-    return {
-      /* "Lots listed" means lots that are actually LISTED, not every marker on
-         the map. It used to count all of them while "Tonnes available" counted
-         only the listed ones, so the deployed strip read "43 lots / 14.1 t" -
-         a third of a tonne per lot, which anyone divides in their head and
-         disbelieves. The map still draws matched lots, so the count says how
-         many of the markers are still up for grabs. */
-      listed: listed.length,
-      onMap: lots.length,
-      tonnes: listed.reduce((sum, l) => sum + l.tonnes, 0),
-      matched: matches.length,
-      debit: matches.reduce((sum, m) => sum + m.transportKgCo2e, 0),
-    };
-  }, [lots, matches]);
+  const totals = useMemo(() => summarise(lots, matches), [lots, matches]);
 
   const active = matches.find((m) => m.matchId === selected) ?? null;
   const activeLot = active ? lotById.get(active.lotId) : undefined;
@@ -217,6 +207,24 @@ export const OperatorMap = () => {
         <button disabled={busy} onClick={onMatch}>
           Run matching
         </button>
+        {/* Fixed steps rather than a slider: each is an operating choice we
+            can defend out loud, and the selected one stays visible on screen
+            rather than collapsing into a dropdown. */}
+        <span className="radius" role="group" aria-label="Match radius">
+          <span className="radius-label">Radius</span>
+          {RADIUS_OPTIONS.map((km) => (
+            <button
+              key={km}
+              type="button"
+              className={km === radiusKm ? "radius-step on" : "radius-step"}
+              aria-pressed={km === radiusKm}
+              disabled={busy}
+              onClick={() => setRadiusKm(km)}
+            >
+              {km} km
+            </button>
+          ))}
+        </span>
         <span className="muted">{msg}</span>
       </div>
 
@@ -394,10 +402,7 @@ export const OperatorMap = () => {
           ) : null}
 
           {unmatched.length > 0 ? (
-            <p className="empty">
-              {unmatched.length} lot{unmatched.length === 1 ? "" : "s"} could not be placed within{" "}
-              {MAX_RADIUS_KM} km of a unit with capacity.
-            </p>
+            <p className="empty">{unplacedMessage(unmatched.length, ranAtKm)}</p>
           ) : null}
         </aside>
       </div>
