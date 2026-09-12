@@ -50,6 +50,20 @@ export const App = () => {
     window.location.hash = view;
   }, [view]);
 
+  /* The hash was read once, at mount. So /#field opened the field view on a
+     fresh load - the documented case - but pressing Back after switching tabs
+     changed the URL and left the screen where it was, which reads as a frozen
+     page rather than as a router that does not listen. Assigning the same
+     hash fires no event, so this cannot loop with the effect above. */
+  useEffect(() => {
+    const onHash = () => {
+      const h = window.location.hash.replace("#", "");
+      if (VIEWS.some((v) => v.id === h)) setView(h as View);
+    };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
   return (
     <div className="shell">
       <header className="topbar">
