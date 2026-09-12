@@ -243,6 +243,35 @@ const DISTRICTS: Array<{ name: string; state: "PB" | "HR" | "RJ" | "CH"; at: Geo
 
 export const DISTRICT_MAX_KM = 60;
 
+/**
+ * The same table read the other way: a district NAME to its centre.
+ *
+ * Exported because Saathi's declaration path needs it. A person typing
+ * "we have 4 tonnes of market waste in Ludhiana" has given a district and
+ * nothing finer, while `DeclareWasteInput` requires a point - and
+ * `AssistantSlots` has no way to carry one, so the name is genuinely all
+ * there is.
+ *
+ * BE HONEST ABOUT WHAT THIS IS. A centroid is the district's centre, not the
+ * waste's location; it can be 30 km out. That feeds the road distance to a
+ * conversion unit and so the transport debit on the credit, which is why the
+ * conversational path says "district centre" in the confirmation rather than
+ * implying a surveyed position. A declaration made from a phone or a map pin
+ * should pass its real point and never come through here.
+ *
+ * It lives in this file because this is where the table is. Copying 33
+ * centroids into the assistant would be the same data in two places, and the
+ * first correction to one of them would silently disagree with the other.
+ * `@charkha/core` is where it actually belongs - that is core's call, and one
+ * import line the day it moves.
+ */
+export const districtCentroid = (name: string): GeoPoint | null => {
+  const want = name.trim().toLowerCase();
+  const found = DISTRICTS.find((d) => d.name.toLowerCase() === want);
+  // A copy: callers must not be able to edit the table by editing what they got.
+  return found ? { ...found.at } : null;
+};
+
 export const districtFor = (at: GeoPoint): string | null => {
   let best: { name: string; km: number } | null = null;
   for (const d of DISTRICTS) {
