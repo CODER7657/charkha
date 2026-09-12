@@ -235,6 +235,14 @@ export const FieldCapture = () => {
     }
   }, [photo, gps, matchId, batch]);
 
+  /* Warn on the field, before the round trip. The verifier's bound is 0-3 and
+     a real H/C organic ratio is 0.2-0.7; someone entered 89 and got a bare
+     HTTP 400 with no clue which of seven numbers was wrong. */
+  const outOfRange = useMemo(() => {
+    const hc = Number(batch.hcOrgRatio);
+    return { hcOrgRatio: batch.hcOrgRatio !== "" && Number.isFinite(hc) && (hc < 0 || hc > 3) };
+  }, [batch.hcOrgRatio]);
+
   /* Correcting a mismatch needs a NEW photograph. The verifier keeps one
      evidence row per image hash (#46), so resending these bytes under a fresh
      evidence id is refused as a double-count - and that refusal is a 400, which
@@ -503,7 +511,13 @@ export const FieldCapture = () => {
           </label>
           <label>
             {t("H/C ratio")} ({t("optional")})
-            <input inputMode="decimal" {...field("hcOrgRatio")} placeholder="lab result" />
+            {/* "lab result" told a field worker nothing about scale, and the
+                verifier refuses anything outside 0-3. Someone entered 89 and
+                got a bare HTTP 400 back. The range belongs on the field. */}
+            <input inputMode="decimal" {...field("hcOrgRatio")} placeholder={t("0.2 - 0.7, leave blank if unknown")} />
+            {outOfRange.hcOrgRatio ? (
+              <span className="fc-hint warn">{t("H/C ratio is usually 0.2 to 0.7. Above 3 will be refused.")}</span>
+            ) : null}
           </label>
           <label>
             {t("Latitude")}
