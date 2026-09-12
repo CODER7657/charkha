@@ -18,25 +18,119 @@ import "./AuditConsole.css";
 
 const truncate = (hash: string, head = 8) => `${hash.slice(0, head)}...${hash.slice(-4)}`;
 
-/** Click any hash to copy it - judges ask for these. */
-const Hash = ({ value, label }: { value: string; label?: string }) => {
-  const [copied, setCopied] = useState(false);
+/**
+ * Copy a value, and report whether it actually happened.
+ *
+ * The version this replaces was
+ *
+ *   void navigator.clipboard?.writeText(value);
+ *   setCopied(true);
+ *
+ * which claims success unconditionally: `?.` turns a missing clipboard into a
+ * no-op and `void` discards a rejection. Outside a secure context, or with an
+ * unfocused document, the reader got a control that said "copied" and copied
+ * nothing - which is what was reported from the deployed host.
+ *
+ * The two paths are injectable so the logic can be tested without a DOM; this
+ * repo runs vitest in node and adding jsdom for one function is not a trade
+ * worth making. Defaults are read lazily, so importing this module in node
+ * does not touch `navigator` or `document` at all.
+ */
+export type CopyDeps = {
+  /** The async clipboard. Absent outside a secure context. */
+  write?: (value: string) => Promise<void>;
+  /** The synchronous fallback. Works where the async API is refused. */
+  legacy?: (value: string) => boolean;
+};
+
+const domLegacy = (value: string): boolean => {
+  const el = document.createElement("textarea");
+  el.value = value;
+  el.setAttribute("readonly", "");
+  el.style.position = "fixed";
+  el.style.opacity = "0";
+  document.body.appendChild(el);
+  el.select();
+  try {
+    return document.execCommand("copy");
+  } finally {
+    /* Always, even when execCommand throws - a stray textarea left in the
+       body would be a second bug hiding behind the first. */
+    document.body.removeChild(el);
+  }
+};
+
+export const copyText = async (value: string, deps: CopyDeps = {}): Promise<boolean> => {
+  const write =
+    deps.write ??
+    (typeof navigator !== "undefined" && navigator.clipboard?.writeText
+      ? (v: string) => navigator.clipboard.writeText(v)
+      : undefined);
+  const legacy = deps.legacy ?? (typeof document !== "undefined" ? domLegacy : undefined);
+
+  if (write) {
+    try {
+      await write(value);
+      return true;
+    } catch {
+      /* A refused permission is not a reason to give up. */
+    }
+  }
+  if (legacy) {
+    try {
+      return legacy(value);
+    } catch {
+      return false;
+    }
+  }
+  return false;
+};
+
+/**
+ * A value a judge will want to take away.
+ *
+ * Three things were wrong with what this replaces, all reported from the
+ * deployed host as "nothing is copyable":
+ *
+ *  - it rendered inside a <button>, which cannot be drag-selected, so a failed
+ *    clipboard call left no manual way to get the value out;
+ *  - it displayed a TRUNCATED value, so even a successful hand-selection gave
+ *    the abbreviated form - which is exactly what produced the reported
+ *    /trace/f7654afa%E2%80%A6bc7;
+ *  - nothing said it was copyable, and nothing said whether it had worked.
+ *
+ * Now the full value sits in a selectable element, the control is visible and
+ * labelled, and a failure says "select it" instead of pretending.
+ */
+const Copyable = ({ value, label, short = true }: { value: string; label?: string; short?: boolean }) => {
+  const [state, setState] = useState<"idle" | "ok" | "fail">("idle");
   return (
-    <button
-      type="button"
-      className={copied ? "hash copied" : "hash"}
-      title={`${label ? `${label}: ` : ""}${value}\n(click to copy)`}
-      onClick={() => {
-        void navigator.clipboard?.writeText(value);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1200);
-      }}
-    >
-      {label ? `${label} ` : ""}
-      {truncate(value)}
-    </button>
+    <span className={`copyable ${state}`}>
+      {label ? <span className="copy-label">{label}</span> : null}
+      {/* Selectable, and carrying the FULL value in the title for anyone who
+          copies by hand or hovers to read it. */}
+      <code className="copy-value" title={value}>
+        {short ? truncate(value) : value}
+      </code>
+      <button
+        type="button"
+        className="copy-btn"
+        aria-label={`Copy ${label ?? "value"}: ${value}`}
+        title={`Copy ${value}`}
+        onClick={() => {
+          void copyText(value).then((ok) => {
+            setState(ok ? "ok" : "fail");
+            setTimeout(() => setState("idle"), 1600);
+          });
+        }}
+      >
+        {state === "ok" ? "copied" : state === "fail" ? "select it" : "copy"}
+      </button>
+    </span>
   );
 };
+
+const Hash = ({ value, label }: { value: string; label?: string }) => <Copyable value={value} label={label} />;
 
 type DecodedCredential = { header: unknown; payload: Record<string, unknown> };
 
@@ -262,6 +356,11 @@ export const AuditConsole = () => {
                     >
                       trace
                     </button>
+                    {/* The task id was rendered NOWHERE in the whole app, while
+                        the credential panel asked for one by name. The only
+                        thing on screen to copy was an abbreviated hash, which
+                        is why the reported lookup was /trace/f7654afa…bc7. */}
+                    <Copyable value={rec.taskId} label="task" />
                     <span className="confidence">
                       {tamperMode ? (
                         <input

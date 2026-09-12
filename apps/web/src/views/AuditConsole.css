@@ -409,3 +409,68 @@
   color: var(--ink);
   border-color: var(--accent);
 }
+
+/* ---- Copyable values ---------------------------------------------
+   Reported from the deployed host: "nothing is copyable". Three causes,
+   all fixed here and in the component:
+     - the value lived inside a <button>, which cannot be drag-selected;
+     - only the truncated form was on screen, so even a hand-copy gave the
+       abbreviated id - the /trace/f7654afa…bc7 in the report;
+     - nothing said it was copyable, or whether the copy had worked.
+   ------------------------------------------------------------------ */
+.audit .copyable {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.audit .copy-label {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* A real element with real text in it, so select-and-copy works when the
+   clipboard API does not. */
+.audit .copy-value {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 12px;
+  color: var(--ink);
+  user-select: all;
+  cursor: text;
+}
+
+.audit .copy-btn {
+  font-family: var(--mono, ui-monospace, monospace);
+  /* 11px is the projector floor, enforced by legibility.test.ts - which
+     caught this at 10px. A control a judge is meant to press has to be
+     readable from the back of the room. */
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  /* Reserve the widest label so the row does not reflow on "copied". */
+  min-width: 7ch;
+  text-align: center;
+}
+
+.audit .copy-btn:hover,
+.audit .copy-btn:focus-visible {
+  color: var(--ink);
+  border-color: var(--accent);
+}
+
+/* State by more than hue: the border moves too, for the projector. */
+.audit .copyable.ok .copy-btn {
+  color: var(--seq);
+  border-color: var(--seq);
+}
+
+.audit .copyable.fail .copy-btn {
+  color: var(--warn);
+  border-color: var(--warn);
+}

@@ -611,3 +611,36 @@
   font-size: 14px;
   color: var(--seq);
 }
+
+/* The match id, readable and copyable. It is what a field worker reads back
+   to an operator over a phone, or pastes into Audit - and on a handset a long
+   value scrolls out of sight inside an input. */
+.field .fc-matchid-row {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.field .fc-matchid-row .fc-matchid {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.field .fc-copy {
+  flex: 0 0 auto;
+  font-size: 13px;
+  padding: 0 12px;
+  /* Thumb target, and wide enough that "Copied" does not resize the row. */
+  min-height: 40px;
+  min-width: 9ch;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.field .fc-copy:hover,
+.field .fc-copy:focus-visible {
+  border-color: var(--accent);
+}
