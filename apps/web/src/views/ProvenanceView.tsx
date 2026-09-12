@@ -42,6 +42,7 @@ const HONESTY: Array<{ what: string; status: "real" | "partial" | "no"; note: st
   { what: "W3C Verifiable Credential issuance", status: "real", note: "Locally generated did:key. Signature checked in your browser, not by our database." },
   { what: "ONNX inference, server and browser", status: "real", note: "One model file, two runtimes, agreement asserted by a parity test." },
   { what: "Live satellite feed", status: "real", note: "NASA FIRMS, near-real-time. Every response says which source answered." },
+  { what: "What the satellite can see", status: "partial", note: "VIIRS is a thermal sensor: cloud blocks it outright, and NOAA-20 passes twice a day, so a fire under cloud or one that burns out between overpasses is simply never detected. We cannot estimate what we miss. This is why declaring waste exists as a second path in and not only as a convenience." },
   { what: "Agent-to-agent authentication", status: "real", note: "Bearer token required; an unauthenticated call is refused with 401." },
   { what: "One photograph, one credit", status: "real", note: "Unique index on the image hash. Five concurrent claims on one photo leave exactly one row - the database decides it, not a check we could forget." },
   { what: "Published revocation list", status: "real", note: "Served signed at /status/credits. The bit follows the credential's own index, not its position in any list of ours." },
