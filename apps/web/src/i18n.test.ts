@@ -25,6 +25,10 @@ const MUST_TRANSLATE = [
   "Offline",
   "Online",
   "Waiting to send",
+  /* The recovery path out of a feedstock mismatch, and the refusal that
+     replaces a resend. Both are read by someone standing in a field. */
+  "Retake with the lot’s feedstock",
+  "This photo has already been sent. Take a new one.",
   "This is what leaves your phone",
   "Inference runs on this device. The photo is never uploaded, only its hash and the scores.",
   "paddy_straw",

@@ -8,6 +8,7 @@ import { EvidenceQueue, type FlushReport } from "./field/queue.ts";
 import {
   FEEDSTOCKS,
   lotFeedstockFromVerdict,
+  photoAlreadySent,
   recallLotFeedstock,
   rememberLotFeedstock,
 } from "./field/feedstock.ts";
@@ -76,6 +77,10 @@ export const FieldCapture = () => {
   });
   const [gps, setGps] = useState<Gps>({ lat: "", lon: "", source: "none" });
   const [outcome, setOutcome] = useState<Outcome | null>(null);
+  /* The photo this device has already handed to the verifier. One image hash
+     is one evidence row server-side, so a second send of it can only be
+     refused - we say so here rather than letting it look like fraud. */
+  const [sentImageHash, setSentImageHash] = useState<string | null>(null);
   const [online, setOnline] = useState(() => navigator.onLine);
   const [pending, setPending] = useState(() => queue.list().length);
   const [flushNote, setFlushNote] = useState("");
@@ -195,8 +200,24 @@ export const FieldCapture = () => {
     }
   }, [photo, gps, matchId, batch]);
 
+  /* Correcting a mismatch needs a NEW photograph. The verifier keeps one
+     evidence row per image hash (#46), so resending these bytes under a fresh
+     evidence id is refused as a double-count - and that refusal is a 400, which
+     the queue drops. Carry the lot's feedstock over and drop the photo: the
+     operator is standing at the char, so a retake is one tap. */
+  const retakeWith = (feedstock: FeedstockClass) => {
+    setBatch((b) => ({ ...b, feedstock }));
+    setLotFeedstock(feedstock);
+    setPhoto(null);
+    setOutcome(null);
+  };
+
   const submit = async (feedstock?: FeedstockClass) => {
     if (!draft.body) return;
+    if (photoAlreadySent(sentImageHash, draft.body.imageHash)) {
+      setOutcome({ kind: "error", error: t("This photo has already been sent. Take a new one.") });
+      return;
+    }
     const body = feedstock ? { ...draft.body, batch: { ...draft.body.batch, feedstock } } : draft.body;
     const evidence = { ...body, evidenceId: newEvidenceId() };
     safeStorage().setItem("charkha.field.matchId", evidence.matchId);
@@ -206,6 +227,7 @@ export const FieldCapture = () => {
     setPending(queue.list().length);
     if (res.status === "sent") {
       const r = res.result as { taskId: string; output: VerifyEvidenceOutput };
+      setSentImageHash(evidence.imageHash);
       setOutcome({ kind: "verdict", taskId: r.taskId, output: r.output });
       /* The verdict is the only place the lot's feedstock is visible, so
          keep it: this match then starts from the right value. */
@@ -215,6 +237,9 @@ export const FieldCapture = () => {
         rememberLotFeedstock(safeStorage(), evidence.matchId, said);
       }
     } else if (res.status === "queued") {
+      /* Queued still counts as spent: the flush will deliver this photo, and a
+         second copy of it would only be refused when the network returns. */
+      setSentImageHash(evidence.imageHash);
       setOutcome({ kind: "queued", error: res.error });
     } else {
       setOutcome({ kind: "error", error: res.error });
@@ -413,13 +438,14 @@ export const FieldCapture = () => {
               ))}
             </ul>
             {lotFeedstockFromVerdict(outcome.output) && !busy ? (
-              /* Refused only because the feedstock disagreed with the lot.
-                 The photo and its scores are still here - no reshoot. */
+              /* Refused only because the feedstock disagreed with the lot. We
+                 now know what the lot says, so fill it in and ask for a fresh
+                 shot - the same bytes can never be sent twice. */
               <button
                 className="fc-submit"
-                onClick={() => void submit(lotFeedstockFromVerdict(outcome.output)!)}
+                onClick={() => retakeWith(lotFeedstockFromVerdict(outcome.output)!)}
               >
-                {t("Use the lot\u2019s feedstock and send again")}
+                {t("Retake with the lot\u2019s feedstock")}
               </button>
             ) : null}
             <p className="muted">

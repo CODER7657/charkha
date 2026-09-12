@@ -38,6 +38,20 @@ export const lotFeedstockFromVerdict = (out: VerifyEvidenceOutput): FeedstockCla
   return lot && isFeedstock(lot) ? lot : null;
 };
 
+/**
+ * One photograph, one submission.
+ *
+ * The verifier stores one evidence row per image hash and refuses a second
+ * evidence id carrying a photo it has already seen, as a double-count attempt
+ * (#46). That refusal is a 400, which the offline queue treats as final - so
+ * resending the same bytes is not a retry that eventually lands, it is
+ * evidence dropped and an honest operator accused of claiming twice.
+ *
+ * Checking it here turns that into a plain sentence and saves the round trip.
+ */
+export const photoAlreadySent = (sentImageHash: string | null, imageHash: string): boolean =>
+  sentImageHash !== null && sentImageHash === imageHash;
+
 type KV = Pick<Storage, "getItem" | "setItem">;
 
 const key = (matchId: string) => `charkha.field.lotFeedstock.${matchId}`;
