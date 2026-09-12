@@ -3,9 +3,10 @@ import { OperatorMap } from "./views/OperatorMap.tsx";
 import { AuditConsole } from "./views/AuditConsole.tsx";
 import { FieldCapture } from "./views/FieldCapture.tsx";
 import { MeshView } from "./views/MeshView.tsx";
+import { ProvenanceView } from "./views/ProvenanceView.tsx";
 import { api } from "./api.ts";
 
-type View = "mesh" | "operator" | "audit" | "field";
+type View = "mesh" | "operator" | "audit" | "field" | "provenance";
 
 const VIEWS: Array<{ id: View; label: string; owner: string }> = [
   /* Mesh first: it is the architecture claim, and a judge should see the four
@@ -14,6 +15,9 @@ const VIEWS: Array<{ id: View; label: string; owner: string }> = [
   { id: "operator", label: "Operator", owner: "Harsh" },
   { id: "audit", label: "Audit", owner: "Ayush" },
   { id: "field", label: "Field", owner: "Hem" },
+  /* Last, and deliberately present: the receipts for everything the other
+     four screens claim. */
+  { id: "provenance", label: "Provenance", owner: "core" },
 ];
 
 /** Deep link so the phone can open straight onto the field view: /#field */
@@ -62,6 +66,7 @@ export const App = () => {
         {view === "operator" && <OperatorMap />}
         {view === "audit" && <AuditConsole />}
         {view === "field" && <FieldCapture />}
+        {view === "provenance" && <ProvenanceView />}
       </main>
     </div>
   );
