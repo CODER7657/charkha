@@ -3,7 +3,12 @@ import { FieldEvidence, type VerifyEvidenceOutput } from "@charkha/core";
 import { CANARY_PREFIX, CLASSES } from "../../../../../agents/verifier/src/protocol.ts";
 import { buildEvidence, type BatchForm, type Scored } from "./evidence.ts";
 import { EvidenceQueue, MAX_ATTEMPTS, isRetryable } from "./queue.ts";
-import { lotFeedstockFromVerdict, recallLotFeedstock, rememberLotFeedstock } from "./feedstock.ts";
+import {
+  lotFeedstockFromVerdict,
+  photoAlreadySent,
+  recallLotFeedstock,
+  rememberLotFeedstock,
+} from "./feedstock.ts";
 
 const scored: Scored = {
   imageHash: "b".repeat(64),
@@ -282,5 +287,40 @@ describe("recovering from a feedstock mismatch", () => {
     };
     expect(() => rememberLotFeedstock(broken, "match_a", "mixed")).not.toThrow();
     expect(recallLotFeedstock(broken, "match_a")).toBeNull();
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * One photograph, one submission.
+ *
+ * The verifier enforces this in the database now: evidence.image_hash is
+ * unique, and a second evidence id carrying a photo we have already stored is
+ * refused as a double-count attempt (#46). That refusal is a 400, which the
+ * queue treats as final - so resending the same bytes is not a retry that
+ * eventually succeeds. It is evidence dropped, and an honest operator told we
+ * refuse "to credit the same image twice".
+ *
+ * Which makes the #42 recovery path - resend this photo carrying the lot's
+ * feedstock - impossible by construction. Correcting a mismatch has to mean a
+ * new photograph with the lot's value already filled in.
+ * ------------------------------------------------------------------ */
+describe("a photograph can only be sent once", () => {
+  it("nothing has been sent yet, so the first submission is free", () => {
+    expect(photoAlreadySent(null, "a".repeat(64))).toBe(false);
+  });
+
+  it("catches a resend of the exact photo already submitted", () => {
+    const shot = "a".repeat(64);
+    expect(photoAlreadySent(shot, shot)).toBe(true);
+  });
+
+  it("lets a genuinely new photograph through", () => {
+    expect(photoAlreadySent("a".repeat(64), "b".repeat(64))).toBe(false);
+  });
+
+  /* The exact move the feedstock recovery button used to make: same bytes,
+     new evidence id, corrected feedstock. Legitimate intent, refused payload. */
+  it("refuses the corrected resend the feedstock recovery used to send", () => {
+    expect(photoAlreadySent(scored.imageHash, scored.imageHash)).toBe(true);
   });
 });
