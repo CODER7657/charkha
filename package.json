@@ -19,7 +19,8 @@
     "build:web": "pnpm -F @charkha/web build",
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build:web",
     "setup:env": "tsx scripts/setup-env.ts",
-    "e2e": "tsx scripts/e2e.mjs"
+    "e2e": "tsx scripts/e2e.mjs",
+    "inspector:proxy": "tsx scripts/inspector-proxy.mjs"
   },
   "devDependencies": {
     "@charkha/a2a": "workspace:*",

@@ -108,6 +108,42 @@ services:
       retries: 6
       start_period: 20s
 
+  # ---- demo profile: not part of the deployed stack ----
+  #
+  # `docker compose --profile demo up -d` brings these up alongside; a plain
+  # `up` leaves them out entirely.
+
+  # The official A2A Inspector: reads live traffic and runs spec-compliance
+  # checks against an agent. Useful in judge Q&A precisely because it is not
+  # our code validating our own claim.
+  inspector:
+    # Built from source: the project publishes no image, so pinning a tag would
+    # be pinning something that does not exist. Compose builds it straight from
+    # the repo the first time the demo profile comes up.
+    build:
+      context: https://github.com/a2aproject/a2a-inspector.git
+    profiles: ["demo"]
+    ports: ["8080:8080"]
+    depends_on: [inspector-proxy]
+    restart: unless-stopped
+
+  # The Inspector cannot send a bearer token, and our agents refuse calls
+  # without one. This mints a fresh token per request rather than turning our
+  # own auth off for the demo.
+  inspector-proxy:
+    build: { context: ., dockerfile: Dockerfile }
+    profiles: ["demo"]
+    command: pnpm inspector:proxy
+    env_file: [.env]
+    environment:
+      PRODUCER_URL: http://producer:4001
+      MATCHMAKER_URL: http://matchmaker:4002
+      VERIFIER_URL: http://verifier:4003
+      REGISTRY_URL: http://registry:4004
+    ports: ["4010:4010"]
+    depends_on: [producer, matchmaker, verifier, registry]
+    restart: unless-stopped
+
   caddy:
     image: caddy:2-alpine
     ports: ["80:80", "443:443"]
