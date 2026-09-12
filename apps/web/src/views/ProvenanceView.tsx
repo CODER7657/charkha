@@ -27,7 +27,7 @@ import "./ProvenanceView.css";
 type Factor = { key: string; value: number; unit: string; source: string };
 type Provenance = {
   carbon: { factors: Factor[]; formula: string };
-  model: { version?: string; hash?: string; classes?: string[]; trained?: boolean } | null;
+  model: { version: string | null; hash: string | null; loaded: boolean; trained: boolean } | null;
   issuer: { did?: string } | null;
   feed: { source: string; bbox: string | null; dayRange: number; note: string };
 };
@@ -134,12 +134,16 @@ export const ProvenanceView = () => {
                   <dd className="pv-hash">{p.model.hash}</dd>
                 </div>
                 <div>
-                  <dt>classes</dt>
-                  <dd>{(p.model.classes ?? []).join(", ")}</dd>
+                  <dt>loaded</dt>
+                  <dd>{p.model.loaded ? "yes" : "no — verdicts fall back to needs_review"}</dd>
                 </div>
                 <div>
                   <dt>trained</dt>
-                  <dd>{p.model.trained ? "yes" : "no — documented colour heuristic"}</dd>
+                  <dd>
+                    {p.model.trained
+                      ? "yes"
+                      : "no — a documented colour heuristic, not a char classifier"}
+                  </dd>
                 </div>
               </dl>
             ) : (
