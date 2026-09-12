@@ -29,7 +29,7 @@ type Provenance = {
   carbon: { factors: Factor[]; formula: string };
   model: { version: string | null; hash: string | null; loaded: boolean; trained: boolean } | null;
   issuer: { did?: string } | null;
-  feed: { source: string; bbox: string | null; dayRange: number; note: string };
+  feed: { source: string; bbox: string | null; dayRange: number | null; note: string };
 };
 
 /* What is genuinely built, what is scoped down, and what we did not attempt.
@@ -167,7 +167,11 @@ export const ProvenanceView = () => {
               </div>
               <div>
                 <dt>day range</dt>
-                <dd>{p?.feed.dayRange ?? "…"}</dd>
+                {/* "…" is loading. A loaded response with no day range means the
+                    host has not set one, and saying so is the only honest
+                    answer - printing a plausible default here would state a
+                    methodology nobody configured. */}
+                <dd>{!p ? "…" : p.feed.dayRange === null ? "not set on this host" : `${p.feed.dayRange} days`}</dd>
               </div>
             </dl>
             <p className="pv-note">{p?.feed.note}</p>
