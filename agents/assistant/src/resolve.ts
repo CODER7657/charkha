@@ -280,9 +280,7 @@ const candidates = (text: string, slots: AssistantSlots): Candidate[] => {
   if (has(text, RUN_MATCHING)) out.push({ intent: "run_matching", score: 0.85 });
   if (has(text, IMPACT)) out.push({ intent: "impact_summary", score: 0.85 });
 
-  /* A write needs its object. Without one this is not a low-scoring write,
-     it is not a write at all - which is what keeps a coin flip off the ledger. */
-  if (has(text, RETIRE) && slots.creditId) out.push({ intent: "retire_credit", score: 0.9 });
+  if (has(text, RETIRE)) out.push({ intent: "retire_credit", score: 0.9 });
 
   if (slots.creditId && (has(text, STATUS_WORDS) || /\?|क्या|ਕੀ|શું/.test(text))) {
     out.push({ intent: "credit_status", score: 0.85 });
@@ -297,26 +295,47 @@ const candidates = (text: string, slots: AssistantSlots): Candidate[] => {
   }
 
   /* Naming a quantity AND a feedstock is a declaration even with no verb -
-     "3 tonnes of paddy straw in Ludhiana" is how someone actually says it.
-     One without the other stays under the mutating floor on purpose. */
+     "3 tonnes of paddy straw in Ludhiana" is how someone actually says it. A
+     bare "declare" is still offered as a candidate, and namesItsObject below
+     is the single place that throws it out - two places agreeing by luck is
+     how they drift apart later. */
   if (slots.tonnes !== undefined && slots.feedstock) {
     out.push({ intent: "declare_waste", score: has(text, DECLARE) ? 0.95 : 0.9 });
-  } else if (has(text, DECLARE) && (slots.tonnes !== undefined || slots.feedstock)) {
+  } else if (has(text, DECLARE)) {
     out.push({ intent: "declare_waste", score: 0.6 });
   }
 
   return out;
 };
 
+/* ---------- the object rule: one place, both tiers ---------- */
+
+/**
+ * A write must name what it acts on.
+ *
+ * This is the guarantee, and it is structural rather than numerical: no
+ * threshold anywhere can recover a credit id that was never typed. It is
+ * applied to pattern candidates and embedding candidates alike, in one place,
+ * because an embedding can be 0.97 confident that a sentence MEANS "retire my
+ * credit" while naming no credit at all - and the gate above this file only
+ * ever sees a number.
+ */
+export const namesItsObject = (intent: AssistantIntent, slots: AssistantSlots): boolean => {
+  if (intent === "retire_credit") return Boolean(slots.creditId);
+  if (intent === "declare_waste") return slots.tonnes !== undefined && Boolean(slots.feedstock);
+  return true;
+};
+
 /* ---------- resolve ---------- */
 
-export const resolve = (utterance: string, _lang: AssistantLang): Resolution => {
+const unknownAt = (slots: AssistantSlots = {}): Resolution => ({ intent: "unknown", slots, confidence: 0 });
+
+/** Normalise once, and pull out every slot the sentence carries. */
+const read = (utterance: string): { text: string; slots: AssistantSlots } => {
   const text = normalise(utterance);
-  const unknown = (slots: AssistantSlots = {}): Resolution => ({ intent: "unknown", slots, confidence: 0 });
-
-  if (!text) return unknown();
-
   const slots: AssistantSlots = {};
+  if (!text) return { text, slots };
+
   const lotId = LOT_ID.exec(utterance)?.[0];
   const creditId = CREDIT_ID.exec(utterance)?.[0];
   const taskId = UUID.exec(utterance)?.[0];
@@ -331,11 +350,51 @@ export const resolve = (utterance: string, _lang: AssistantLang): Resolution => 
   const district = readDistrict(text);
   if (district) slots.district = district;
 
-  /* No candidate means no reading of this sentence, which is `unknown` with
-     nothing to hedge. Otherwise report the honest score and let the gate in
-     answer.ts decide whether that is enough to act on. */
-  const best = candidates(text, slots).sort((a, b) => b.score - a.score)[0];
-  if (!best) return unknown(slots);
-
-  return { intent: best.intent, slots, confidence: best.score };
+  return { text, slots };
 };
+
+/**
+ * The single chokepoint. Filter by the object rule, then take the best.
+ *
+ * No candidate left means no reading of this sentence, which is `unknown` with
+ * nothing to hedge. Otherwise report the honest score and let MIN_CONFIDENCE
+ * in answer.ts decide whether that is enough to act on.
+ */
+const pick = (all: Candidate[], slots: AssistantSlots): Resolution => {
+  const eligible = all.filter((c) => namesItsObject(c.intent, slots));
+  const best = eligible.sort((a, b) => b.score - a.score)[0];
+  return best ? { intent: best.intent, slots, confidence: best.score } : unknownAt(slots);
+};
+
+/** Tier 1 only: patterns, synchronous, no model. */
+export const resolve = (utterance: string, _lang: AssistantLang): Resolution => {
+  const { text, slots } = read(utterance);
+  if (!text) return unknownAt();
+  return pick(candidates(text, slots), slots);
+};
+
+export type EmbedCandidates = (text: string) => Promise<Candidate[]>;
+
+/**
+ * Tier 1 + Tier 2.
+ *
+ * Async because ONNX inference is. `answer.ts` currently types `Resolve` as
+ * synchronous and calls it without `await`, so wiring this in needs one line
+ * changed there as well as the injection - see the note on #62. Until then the
+ * synchronous `resolve` above is what ships, and this is additive.
+ *
+ * With no embedder supplied this is exactly Tier 1, which is also the state
+ * when the flag is off, the model is missing, or loading failed.
+ */
+export const makeResolver =
+  (deps: { embedCandidates?: EmbedCandidates }) =>
+  async (utterance: string, _lang: AssistantLang): Promise<Resolution> => {
+    const { text, slots } = read(utterance);
+    if (!text) return unknownAt();
+
+    const patterned = candidates(text, slots);
+    /* A broken model degrades to Tier 1 rather than failing the request. */
+    const embedded = deps.embedCandidates ? await deps.embedCandidates(text).catch(() => []) : [];
+
+    return pick([...patterned, ...embedded], slots);
+  };
