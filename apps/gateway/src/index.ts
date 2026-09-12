@@ -157,7 +157,11 @@ app.get("/api/provenance", async () => {
          constant here is the same drift with extra steps. So: report what is
          set, and say plainly when nothing is. Found by Harsh in #48. */
       dayRange: process.env["FIRMS_DAY_RANGE"] ? Number(process.env["FIRMS_DAY_RANGE"]) : null,
-      note: "NASA FIRMS, read-only. The only outbound request this system makes.",
+      /* Says what the instrument cannot do, not only what it is. A thermal
+         sensor sees nothing through cloud, and two overpasses a day is two
+         looks - both are properties a reader should not have to know to
+         interpret an empty map. */
+      note: "NASA FIRMS, read-only - the only outbound request this system makes. VIIRS is thermal: cloud blocks it, and NOAA-20 passes twice a day, so an unseen fire is unseen rather than absent.",
     },
   };
 });
