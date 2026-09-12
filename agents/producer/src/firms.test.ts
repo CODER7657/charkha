@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   DEFAULT_BBOX,
+  DEFAULT_DAY_RANGE,
   DEFAULT_SOURCE,
   buildFirmsUrl,
   defaultTonnesFor,
@@ -86,6 +87,17 @@ describe("FIRMS url", () => {
 
   it("refuses a bbox carrying a path separator", () => {
     expect(() => buildFirmsUrl({ mapKey: "K", bbox: "73.8,29.5,77.5,32.2/../../evil" })).toThrow();
+  });
+
+  /* The day range is a demo-day decision, so pin it: a silent revert to 2
+     would quietly halve what the map shows, and 1 returned nothing at all when
+     measured. */
+  it("defaults to the five-day window and never exceeds the FIRMS maximum", () => {
+    expect(DEFAULT_DAY_RANGE).toBe(5);
+    expect(buildFirmsUrl({ mapKey: "K" })).toMatch(/\/5$/);
+    // FIRMS caps DAY_RANGE at 5; IngestBurnsInput enforces it, and the default
+    // must not be the one value that sails past that bound.
+    expect(DEFAULT_DAY_RANGE).toBeLessThanOrEqual(5);
   });
 
   it("refuses a nonsense day range", () => {

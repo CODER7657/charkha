@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import fs from "node:fs/promises";
-import { DEFAULT_SOURCE, buildFirmsUrl, looksLikeCsv } from "./firms.ts";
+import { DEFAULT_DAY_RANGE, DEFAULT_SOURCE, buildFirmsUrl, looksLikeCsv } from "./firms.ts";
 
 /* ------------------------------------------------------------------ *
  * OWNER: Harsh
@@ -125,7 +125,7 @@ export const loadFirmsCsv = async (args: {
 
   const source = process.env["FIRMS_SOURCE"];
   const bbox = args.bbox ?? process.env["FIRMS_BBOX"];
-  const dayRange = args.dayRange ?? Number(process.env["FIRMS_DAY_RANGE"] ?? 2);
+  const dayRange = args.dayRange ?? Number(process.env["FIRMS_DAY_RANGE"] ?? DEFAULT_DAY_RANGE);
 
   try {
     const csv = await fetchLive({
