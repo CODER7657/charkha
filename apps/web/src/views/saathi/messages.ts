@@ -34,7 +34,9 @@ export const fill = (template: Template, params: AssistantMessage["params"]): st
 const EN: Dict = {
   "assistant.not_understood":
     "I did not understand that. You can ask what happened to your waste, how much CO₂ your district has sequestered, or ask me to run matching.",
-  "assistant.refused": "{agent} refused that: {detail}",
+  "assistant.refused": "{agent} would not do that, so nothing was changed.",
+  "assistant.refused.retire_credit":
+    "That credit was not retired, and nothing was changed. Most often that is because someone else holds it — ask me for the credit's status and I will tell you who.",
   "assistant.unavailable": "I could not reach {agent} just now. Nothing was changed.",
 
   "assistant.confirm.mismatch":
@@ -63,7 +65,9 @@ const EN: Dict = {
 const HI: Dict = {
   "assistant.not_understood":
     "मैं समझ नहीं पाया। आप पूछ सकते हैं कि आपके कूड़े का क्या हुआ, आपके ज़िले ने कितनी CO₂ रोकी, या मुझसे मैचिंग चलाने को कह सकते हैं।",
-  "assistant.refused": "{agent} ने मना किया: {detail}",
+  "assistant.refused": "{agent} ने यह करने से मना कर दिया, इसलिए कुछ भी नहीं बदला।",
+  "assistant.refused.retire_credit":
+    "वह क्रेडिट रिटायर नहीं हुआ, कुछ भी नहीं बदला। अक्सर इसकी वजह यह होती है कि वह किसी और के नाम है — मुझसे उसकी स्थिति पूछें, मैं बता दूँगा कि वह किसके पास है।",
   "assistant.unavailable": "{agent} से अभी संपर्क नहीं हो सका। कुछ भी नहीं बदला गया।",
 
   "assistant.confirm.mismatch": "वह पुष्टि किसी और अनुरोध के लिए थी, इसलिए मैंने कुछ नहीं किया। कृपया दोबारा पूछें।",
@@ -90,7 +94,9 @@ const HI: Dict = {
 const PA: Dict = {
   "assistant.not_understood":
     "ਮੈਂ ਸਮਝ ਨਹੀਂ ਸਕਿਆ। ਤੁਸੀਂ ਪੁੱਛ ਸਕਦੇ ਹੋ ਕਿ ਤੁਹਾਡੇ ਕੂੜੇ ਦਾ ਕੀ ਹੋਇਆ, ਤੁਹਾਡੇ ਜ਼ਿਲ੍ਹੇ ਨੇ ਕਿੰਨੀ CO₂ ਰੋਕੀ, ਜਾਂ ਮੈਨੂੰ ਮੈਚਿੰਗ ਚਲਾਉਣ ਲਈ ਕਹਿ ਸਕਦੇ ਹੋ।",
-  "assistant.refused": "{agent} ਨੇ ਇਨਕਾਰ ਕੀਤਾ: {detail}",
+  "assistant.refused": "{agent} ਨੇ ਇਹ ਕਰਨ ਤੋਂ ਇਨਕਾਰ ਕੀਤਾ, ਇਸ ਲਈ ਕੁਝ ਵੀ ਨਹੀਂ ਬਦਲਿਆ।",
+  "assistant.refused.retire_credit":
+    "ਉਹ ਕ੍ਰੈਡਿਟ ਰਿਟਾਇਰ ਨਹੀਂ ਹੋਇਆ, ਕੁਝ ਵੀ ਨਹੀਂ ਬਦਲਿਆ। ਆਮ ਤੌਰ ਤੇ ਇਸ ਦਾ ਕਾਰਨ ਇਹ ਹੁੰਦਾ ਹੈ ਕਿ ਉਹ ਕਿਸੇ ਹੋਰ ਦੇ ਨਾਂ ਹੈ — ਮੈਨੂੰ ਉਸ ਦੀ ਸਥਿਤੀ ਪੁੱਛੋ, ਮੈਂ ਦੱਸਾਂਗਾ ਕਿ ਉਹ ਕਿਸ ਕੋਲ ਹੈ।",
   "assistant.unavailable": "{agent} ਨਾਲ ਹੁਣੇ ਸੰਪਰਕ ਨਹੀਂ ਹੋ ਸਕਿਆ। ਕੁਝ ਵੀ ਨਹੀਂ ਬਦਲਿਆ।",
 
   "assistant.confirm.mismatch": "ਉਹ ਪੁਸ਼ਟੀ ਕਿਸੇ ਹੋਰ ਬੇਨਤੀ ਲਈ ਸੀ, ਇਸ ਲਈ ਮੈਂ ਕੁਝ ਨਹੀਂ ਕੀਤਾ। ਕਿਰਪਾ ਕਰਕੇ ਦੁਬਾਰਾ ਪੁੱਛੋ।",
@@ -117,7 +123,9 @@ const PA: Dict = {
 const GU: Dict = {
   "assistant.not_understood":
     "હું સમજી શક્યો નહીં. તમે પૂછી શકો છો કે તમારા કચરાનું શું થયું, તમારા જિલ્લાએ કેટલી CO₂ રોકી, અથવા મને મેચિંગ ચલાવવાનું કહી શકો છો.",
-  "assistant.refused": "{agent} એ ના પાડી: {detail}",
+  "assistant.refused": "{agent} એ તે કરવાની ના પાડી, તેથી કશું બદલાયું નથી.",
+  "assistant.refused.retire_credit":
+    "તે ક્રેડિટ રિટાયર થઈ નથી, કશું બદલાયું નથી. સામાન્ય રીતે તેનું કારણ એ હોય છે કે તે કોઈ બીજાના નામે છે — મને તેની સ્થિતિ પૂછો, હું કહીશ કે તે કોની પાસે છે.",
   "assistant.unavailable": "{agent} સાથે અત્યારે સંપર્ક થઈ શક્યો નહીં. કશું બદલાયું નથી.",
 
   "assistant.confirm.mismatch": "એ પુષ્ટિ બીજી વિનંતી માટે હતી, તેથી મેં કશું કર્યું નથી. કૃપા કરી ફરી પૂછો.",

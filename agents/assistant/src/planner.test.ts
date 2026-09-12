@@ -207,6 +207,61 @@ describe("when an agent will not answer", () => {
     expect(out.hops[0]?.taskId).toBeNull();
   });
 
+  /**
+   * The agent's own message is written for a developer, in English. `t()`
+   * cannot reach inside a parameter, so anything we pass through arrives
+   * untranslated on a Punjabi screen - the same failure the verifier had with
+   * `reasons`. What the user reads is a key; the detail is kept in `data`,
+   * where it is evidence rather than a sentence.
+   */
+  it("never puts the agent's own words in what the user reads", async () => {
+    const detail =
+      "registry.retireCredit: refusing to retire crd_00000000000000000001: retiredBy does not match the credit's holder";
+    const call = vi.fn(async () => {
+      throw new AgentRequestError("registry", "retireCredit", detail);
+    });
+    const retire: PlannerTable = {
+      retire_credit: () => ({
+        status: "write",
+        summary: { key: "assistant.credit.retire_summary", params: {} },
+        call: { agent: "registry", skill: "retireCredit", input: {} },
+        done: () => ({ key: "assistant.credit.retired", params: {} }),
+      }),
+    };
+    const plan = makePlanner({ planners: retire, call, now: () => 1_000_000 });
+    const resolved = resolvedAs({ intent: "retire_credit", slots: { creditId: "crd_00000000000000000001" } });
+    const token = mintConfirmation("retire_credit", resolved.slots, 1_000_000);
+
+    const out = await plan(resolved, token, () => {});
+
+    /* The refusal itself still worked. */
+    expect(out.performed).toBe(false);
+    expect(out.hops[0]?.ok).toBe(false);
+
+    /* An intent whose refusal deserves its own sentence gets one. */
+    expect(out.reply.key).toBe("assistant.refused.retire_credit");
+
+    /* And not a word of the agent's English reaches the reply. */
+    const rendered = JSON.stringify(out.reply);
+    expect(rendered).not.toContain("retiredBy");
+    expect(rendered).not.toContain("refusing to retire");
+    expect(rendered).not.toContain("registry.retireCredit");
+
+    /* Kept where whoever is debugging will look for it. */
+    expect(JSON.stringify(out.data)).toContain("retiredBy");
+  });
+
+  it("falls back to the generic refusal for an intent with no copy of its own", async () => {
+    const call = vi.fn(async () => {
+      throw new AgentRequestError("producer", "listLots", "no such district: Nowhere");
+    });
+    const plan = makePlanner({ planners: PLANNERS, call, now: () => 1_000_000 });
+    const out = await plan(resolvedAs({ slots: { district: "Nowhere" } }), undefined, () => {});
+
+    expect(out.reply.key).toBe("assistant.refused");
+    expect(JSON.stringify(out.reply)).not.toContain("no such district");
+  });
+
   /* Our own breakage must not be dressed up as an answer to the user. */
   it("does not report our outage as a refusal", async () => {
     const call = vi.fn(async () => {

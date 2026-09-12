@@ -61,6 +61,39 @@ const hop = (c: PlannedCall, taskId: string | null, ms: number, ok: boolean): Ag
 });
 
 /** Everything an answer needs beyond what the planner produced. */
+/**
+ * What the user reads when an agent refuses, and what we keep for ourselves.
+ *
+ * The reply may NOT carry the agent's own message. Those are English
+ * sentences written for a developer - "registry.retireCredit: refusing to
+ * retire crd_9dd23c3c...: retiredBy does not match the credit's holder" - and
+ * `t()` cannot reach inside a parameter, so on a Punjabi screen the frame
+ * translates and the sentence does not. That is the same failure the verifier
+ * had with `reasons`, and the reason every message here is a key.
+ *
+ * The detail is not thrown away. It goes in `data`, where the console and
+ * whoever is debugging can read it, and where nobody is trying to read it as
+ * a sentence.
+ */
+/* Intents whose refusal deserves its own sentence, because "the registry
+   would not do that" is true and useless. Chosen by intent, never by reading
+   the agent's message - matching on prose is how a reworded refusal silently
+   changes what a user is told. */
+const REFUSAL_KEY: Partial<Record<AssistantIntent, string>> = {
+  retire_credit: "assistant.refused.retire_credit",
+};
+
+const refusal = (c: PlannedCall, intent: AssistantIntent, err: unknown) => ({
+  reply:
+    err instanceof AgentRequestError
+      ? msg(REFUSAL_KEY[intent] ?? "assistant.refused", { agent: c.agent, skill: c.skill, intent })
+      : msg("assistant.unavailable", { agent: c.agent }),
+  data:
+    err instanceof AgentRequestError
+      ? { refused: { agent: c.agent, skill: c.skill, detail: err.message } }
+      : null,
+});
+
 export type Resolved = { intent: AssistantIntent; slots: AssistantSlots; confidence: number };
 
 export const makePlanner =
@@ -98,14 +131,7 @@ export const makePlanner =
              else is ours and should not be dressed up as an answer. Either way
              the hop is recorded as failed, so the UI shows the agent that did
              not answer rather than silently showing three of four. */
-          return {
-            ...base,
-            hops,
-            reply:
-              err instanceof AgentRequestError
-                ? msg("assistant.refused", { agent: c.agent, detail: err.message })
-                : msg("assistant.unavailable", { agent: c.agent }),
-          };
+          return { ...base, hops, ...refusal(c, intent, err) };
         }
       }
       return { ...base, hops, reply: plan.reply(outputs), data: outputs.length === 1 ? outputs[0] : outputs };
@@ -153,10 +179,7 @@ export const makePlanner =
       return {
         ...base,
         hops: [hop(plan.call, null, deps.now() - started, false)],
-        reply:
-          err instanceof AgentRequestError
-            ? msg("assistant.refused", { agent: plan.call.agent, detail: err.message })
-            : msg("assistant.unavailable", { agent: plan.call.agent }),
+        ...refusal(plan.call, intent, err),
       };
     }
   };
