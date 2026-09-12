@@ -4,6 +4,9 @@ build/
 .env
 .env.local
 *.log
+# Redirected stderr from a locally started service. Two empty ones reached
+# main in #47 via `git add -A`; *.log was ignored and *.err was not.
+*.err
 .DS_Store
 .pnpm-store/
 coverage/
