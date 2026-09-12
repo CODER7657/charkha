@@ -395,6 +395,15 @@ export const FieldCapture = () => {
         <div className="fc-grid">
           <label className="fc-wide">
             {t("Which batch is this?")}
+            {/* Say how many, so "are these all of them?" has an answer on
+                screen. The skill caps at 25; at the cap there may be more. */}
+            {choices && choices.length > 0 ? (
+              <span className="fc-hint">
+                {choices.length >= 25
+                  ? t("25 most recent batches awaiting a photo")
+                  : `${choices.length} ${t("batches awaiting a photo")}`}
+              </span>
+            ) : null}
             {/* Pick, do not type. Nobody recognises a batch by its id - they
                 recognise the unit and the district, which is what this shows.
                 The text box stays underneath for a typed or remembered id. */}

@@ -556,10 +556,19 @@
   flex-direction: column;
   gap: 6px;
   margin: 6px 0 8px;
-  /* Four rows visible, the rest scrolls. A list that pushes the Submit
-     button off a phone screen is worse than one that scrolls. */
-  max-height: 232px;
+  /* The rest scrolls. A list that pushes Submit off a phone screen is worse
+     than one that scrolls - but a fixed max-height cut rows in half, so the
+     list ended mid-word with a headless "91 km - 2.5 t" at the top. Snapping
+     means it always comes to rest on a whole row. */
+  max-height: 15rem;
   overflow-y: auto;
+  scroll-snap-type: y proximity;
+  /* Room for the scrollbar so it never sits on top of the text. */
+  padding-right: 4px;
+}
+
+.field .fc-picks > * {
+  scroll-snap-align: start;
 }
 
 .field .fc-pick {

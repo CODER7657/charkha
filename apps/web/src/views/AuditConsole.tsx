@@ -345,35 +345,38 @@ export const AuditConsole = () => {
                       <span className="action">{rec.action}</span>
                     )}
                     {edited.has(rec.seq) ? <span className="edited">edited</span> : null}
-                    {/* The log never showed a task id, so the only thing a
-                        reader could paste into the panel below was a truncated
-                        hash - which 404s. This sends the full id. */}
-                    <button
-                      type="button"
-                      className="trace-row"
-                      title={`Trace ${rec.taskId}`}
-                      onClick={() => setSeed({ taskId: rec.taskId, n: Date.now() })}
-                    >
-                      trace
-                    </button>
-                    {/* The task id was rendered NOWHERE in the whole app, while
-                        the credential panel asked for one by name. The only
-                        thing on screen to copy was an abbreviated hash, which
-                        is why the reported lookup was /trace/f7654afa…bc7. */}
-                    <Copyable value={rec.taskId} label="task" />
-                    <span className="confidence">
-                      {tamperMode ? (
-                        <input
-                          className="edit"
-                          value={rec.confidence ?? ""}
-                          aria-label={`confidence for record ${rec.seq}`}
-                          onChange={(e) => tamper(rec.seq, "confidence", e.target.value)}
-                        />
-                      ) : rec.confidence === null ? (
-                        "no confidence"
-                      ) : (
-                        `confidence ${rec.confidence.toFixed(2)}`
-                      )}
+                    {/* One grid slot for everything trailing a record. These
+                        used to be loose flex children with margin-left:auto on
+                        the confidence, so in tamper mode - where the confidence
+                        becomes a text box - it wrapped onto a line of its own,
+                        and nothing lined up between rows. */}
+                    <span className="row1-meta">
+                      {/* The log never showed a task id, so the only thing a
+                          reader could paste into the panel below was a
+                          truncated hash, which 404s. This sends the full id. */}
+                      <button
+                        type="button"
+                        className="trace-row"
+                        title={`Trace ${rec.taskId}`}
+                        onClick={() => setSeed({ taskId: rec.taskId, n: Date.now() })}
+                      >
+                        trace
+                      </button>
+                      <Copyable value={rec.taskId} label="task" />
+                      <span className="confidence">
+                        {tamperMode ? (
+                          <input
+                            className="edit"
+                            value={rec.confidence ?? ""}
+                            aria-label={`confidence for record ${rec.seq}`}
+                            onChange={(e) => tamper(rec.seq, "confidence", e.target.value)}
+                          />
+                        ) : rec.confidence === null ? (
+                          "no confidence"
+                        ) : (
+                          `confidence ${rec.confidence.toFixed(2)}`
+                        )}
+                      </span>
                     </span>
                   </div>
                   <div className="row2">
