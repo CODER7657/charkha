@@ -11,6 +11,7 @@
     "@charkha/a2a": "workspace:*",
     "@charkha/core": "workspace:*",
     "@charkha/db": "workspace:*",
+    "@huggingface/tokenizers": "^0.2.0",
     "dotenv": "^17.4.2",
     "zod": "^4.6.2"
   }
