@@ -59,6 +59,25 @@ export const makeAnswer =
         ? { intent: "unknown", slots: resolved.slots, confidence: resolved.confidence }
         : resolved;
 
+    /* Who is asking comes from the caller, never from the sentence.
+    
+       `retire_credit` needs a holder and `declare_waste` needs a declarer, and
+       the resolver fills neither - correctly. A sentence is the wrong place to
+       assert an identity: lift a holder out of prose and anyone can retire
+       anyone's credit by typing the right name.
+    
+       Folded in here rather than in each planning module, so there is one
+       answer to "where does the assistant think you are from" - and so the
+       confirmation token, which is signed over these slots, commits to the
+       identity the write will actually run as. */
+    if (input.identity) {
+      gated.slots = {
+        ...gated.slots,
+        holder: gated.slots.holder ?? input.identity,
+        declaredBy: gated.slots.declaredBy ?? input.identity,
+      };
+    }
+
     ctx.progress(`intent ${gated.intent} (${gated.confidence.toFixed(2)})`);
     return deps.plan(gated, input.confirm, ctx.progress);
   };

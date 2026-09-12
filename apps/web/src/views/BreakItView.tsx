@@ -139,7 +139,14 @@ export const BreakItView = () => {
       }
 
       const result = await attempt(call.path, { method: "POST", body: JSON.stringify(call.body) });
-      record(attack.id, judgeHttp(result, attack.expect ?? 400), rawOf(result));
+      const outcome = judgeHttp(result, attack.expect ?? 400);
+      /* A caveat qualifies WHAT was proved; it never softens the verdict. An
+         attack that succeeded is still `broken` and still loud. */
+      record(
+        attack.id,
+        call.caveat ? { ...outcome, detail: `${outcome.detail} ${call.caveat}` } : outcome,
+        rawOf(result),
+      );
     } finally {
       setRunning(null);
     }
@@ -255,7 +262,10 @@ export const BreakItView = () => {
 const LABEL = { held: "refused", broken: "IT WORKED", unknown: "not proved" } as const;
 
 /** Which request each attack sends, against whatever the screen found to attack. */
-const plan = (id: AttackId, targets: Targets): { path: string; body: unknown } | null => {
+const plan = (
+  id: AttackId,
+  targets: Targets,
+): { path: string; body: unknown; caveat?: string } | null => {
   const { credited, refused } = targets;
 
   if (id === "double_credit") {
@@ -271,7 +281,25 @@ const plan = (id: AttackId, targets: Targets): { path: string; body: unknown } |
        proves the field was ignored but says nothing about where the verdict
        came from. Either way the verdict we send is never read. */
     const target = refused ?? credited;
-    return target === null ? null : { path: "/api/credits/issue", body: forgedVerdictPayload(target.matchId, target.evidenceId) };
+    if (target === null) return null;
+    return {
+      path: "/api/credits/issue",
+      body: forgedVerdictPayload(target.matchId, target.evidenceId),
+      /* Say which target we got, on screen, not only in this comment.
+      
+         With no refused batch on the system the fallback is not an edge case,
+         it is what a judge sees - and they read "Supply our own verdict",
+         then a refusal that says "already been credited". Both sentences are
+         true and together they look like an overclaim, which on this screen
+         is the worst possible failure: its whole value is that it is not
+         theatre. Ayush caught this against the live API. */
+      ...(refused === null
+        ? {
+            caveat:
+              "No refused batch exists on this system, so this attacked an already-credited one. That proves the verdict we sent was ignored - it does not show the registry reading the verdict it holds. Capture a needs_review photo on the Field screen and run this again to see that.",
+          }
+        : {}),
+    };
   }
 
   if (id === "same_photo") {

@@ -392,6 +392,24 @@ export const AssistantAskInput = z.object({
   utterance: z.string().min(1).max(500),
   lang: AssistantLang.default("en"),
   /**
+   * Who is asking.
+   *
+   * Retiring a credit needs a holder and declaring waste needs a declarer, and
+   * neither can be read out of a sentence. Not because it is hard - "retire
+   * crd_x as prod_sangrur" parses fine - but because a sentence is the wrong
+   * place to assert an identity. If the resolver lifts a holder out of prose,
+   * anyone can retire anyone's credit by typing the right name into it, and
+   * the holder check that guards retirement becomes decorative.
+   *
+   * Be clear about what this does and does not buy. We have no user
+   * authentication, so this is still an unvalidated claim - a field instead of
+   * a phrase. What it buys is one deliberate place for that claim, clearly
+   * labelled, which is where a signed holder presentation would attach when
+   * there is one. The Provenance screen already says retirement authorisation
+   * is partial for exactly this reason, and it stays partial.
+   */
+  identity: z.string().min(1).max(120).optional(),
+  /**
    * Echoed back from a previous answer's `confirmation.token` to actually
    * perform a write. An intent that mutates NEVER executes on the first ask -
    * the assistant says what it is about to do and waits. This is the whole
