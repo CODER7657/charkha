@@ -113,7 +113,24 @@ app.get("/api/provenance", async () => {
     }
   };
 
-  const [model, did] = await Promise.all([ask("verifier", "/model"), ask("registry", "/did")]);
+  const [rawModel, did] = await Promise.all([ask("verifier", "/model"), ask("registry", "/did")]);
+
+  /* The verifier reports {version, sha256, loaded}. Normalise it here rather
+     than letting the view guess at field names - it was reading `hash` and
+     `trained`, neither of which exists, so the sha256 that goes in the ledger
+     never rendered and "not trained" was right only by accident.
+     `trained` is derived from the version, which is the convention
+     ml/models/MANIFEST.md already uses, and it fails closed: anything we
+     cannot positively identify as trained is reported as not trained. */
+  const version = (rawModel as { version?: string } | null)?.version ?? null;
+  const model = rawModel
+    ? {
+        version,
+        hash: (rawModel as { sha256?: string }).sha256 ?? null,
+        loaded: (rawModel as { loaded?: boolean }).loaded ?? false,
+        trained: Boolean(version) && !/baseline|untrained|stub|no-model/i.test(version!),
+      }
+    : null;
 
   return {
     carbon: {
