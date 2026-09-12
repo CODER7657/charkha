@@ -5,8 +5,11 @@ import {
   ATTACKS,
   duplicatePhotoPayload,
   forgedVerdictPayload,
+  haveBothTargets,
   judgeHttp,
   judgeTamper,
+  MAX_TRACE_FETCHES,
+  orderTaskIds,
   pickTargets,
   tamperAt,
   verifyHere,
@@ -347,5 +350,83 @@ describe("the screen explains itself before it is pressed", () => {
       if (attack.expect === null) continue;
       expect(attack.expect, attack.id).toBeGreaterThanOrEqual(400);
     }
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * Trace ordering.
+ *
+ * The bug Hem found in #90: a valid refused batch at seq 13, against a ledger
+ * of 141, matched every clause of pickTargets and was never fetched, because
+ * the screen took the twelve most recent verify/issue tasks and a wall of
+ * credited ones sat in front of it. Attack 2 then silently fell back and
+ * proved a weaker guard than the row claims to test.
+ *
+ * The failure is quiet by nature - the screen keeps working and says something
+ * honest - so it needs a test that fails loudly instead.
+ * ------------------------------------------------------------------ */
+describe("which traces to fetch", () => {
+  const verified = (taskId: string) => ({ taskId, action: "verifyEvidence" });
+  const issued = (taskId: string) => ({ taskId, action: "issueCredit" });
+
+  /** One old refusal buried under a long run of credited tasks. */
+  const buriedRefusal = [
+    verified("old-refused"),
+    ...Array.from({ length: 40 }, (_, i) => [verified(`t${i}`), issued(`t${i}`)]).flat(),
+  ];
+
+  it("reaches a refusal buried far behind the recent credits", () => {
+    const order = orderTaskIds(buriedRefusal);
+    expect(order.slice(0, MAX_TRACE_FETCHES)).toContain("old-refused");
+  });
+
+  it("puts it first, because there is only one of it and many of the other", () => {
+    expect(orderTaskIds(buriedRefusal)[0]).toBe("old-refused");
+  });
+
+  /* The old implementation, kept here as the thing that must not come back. */
+  it("beats taking the most recent tasks regardless of shape", () => {
+    const naive = [...new Set(buriedRefusal.map((r) => r.taskId))].reverse().slice(0, 12);
+    expect(naive).not.toContain("old-refused");
+    expect(orderTaskIds(buriedRefusal).slice(0, 12)).toContain("old-refused");
+  });
+
+  it("still prefers the newest example within each shape", () => {
+    const order = orderTaskIds([
+      verified("r-old"),
+      verified("c-old"), issued("c-old"),
+      verified("r-new"),
+      verified("c-new"), issued("c-new"),
+    ]);
+    expect(order.indexOf("r-new")).toBeLessThan(order.indexOf("r-old"));
+    expect(order.indexOf("c-new")).toBeLessThan(order.indexOf("c-old"));
+  });
+
+  it("does not starve one queue when the other is empty", () => {
+    expect(orderTaskIds([verified("a"), verified("b")])).toEqual(["b", "a"]);
+    expect(orderTaskIds([verified("a"), issued("a")])).toEqual(["a"]);
+    expect(orderTaskIds([])).toEqual([]);
+  });
+
+  /* A task that only ingested or matched is neither shape and is pure cost. */
+  it("ignores tasks that could not carry either target", () => {
+    const order = orderTaskIds([
+      { taskId: "ingest-only", action: "ingestBurns" },
+      { taskId: "match-only", action: "runMatching" },
+      verified("real"),
+    ]);
+    expect(order).toEqual(["real"]);
+  });
+
+  it("knows when to stop fetching", () => {
+    const some = { matchId: "m", evidenceId: "e", verdict: "needs_review" };
+    expect(haveBothTargets({ credited: null, refused: null })).toBe(false);
+    expect(haveBothTargets({ credited: null, refused: some })).toBe(false);
+    expect(
+      haveBothTargets({
+        credited: { matchId: "m", evidenceId: "e", creditId: "c", evidence: {} as never },
+        refused: some,
+      }),
+    ).toBe(true);
   });
 });

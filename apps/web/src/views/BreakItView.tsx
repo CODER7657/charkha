@@ -5,8 +5,11 @@ import {
   NOT_FROM_BROWSER,
   duplicatePhotoPayload,
   forgedVerdictPayload,
+  haveBothTargets,
   judgeHttp,
   judgeTamper,
+  MAX_TRACE_FETCHES,
+  orderTaskIds,
   pickTargets,
   tamperAt,
   verifyHere,
@@ -100,20 +103,19 @@ export const BreakItView = () => {
     const { chain: records } = JSON.parse(ledger.body) as { chain: DecisionRecord[] };
     setChain(records);
 
-    /* Newest first: the most recent credit is the one a judge just watched
-       being issued, and attacking it reads better than attacking history. */
-    const taskIds = [
-      ...new Set(
-        records
-          .filter((r) => r.action === "issueCredit" || r.action === "verifyEvidence")
-          .map((r) => r.taskId),
-      ),
-    ].reverse();
+    /* Newest first WITHIN each shape - credited and refused are different
+       populations and taking the twelve most recent of both together starved
+       the refused one. See orderTaskIds. */
+    const taskIds = orderTaskIds(records);
 
     const bundles: TraceBundle[] = [];
-    for (const taskId of taskIds.slice(0, 12)) {
+    for (const taskId of taskIds.slice(0, MAX_TRACE_FETCHES)) {
       const res = await attempt(`/api/trace/${encodeURIComponent(taskId)}`);
       if (res.ok && res.status === 200) bundles.push(JSON.parse(res.body) as TraceBundle);
+      /* Stop as soon as both targets exist - on a healthy ledger that is two
+         or three fetches, and the bound above only matters when one of the
+         two genuinely does not exist yet. */
+      if (haveBothTargets(pickTargets(bundles))) break;
     }
 
     setTargets(pickTargets(bundles));

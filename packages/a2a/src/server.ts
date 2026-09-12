@@ -1,4 +1,5 @@
 import express from "express";
+import type { Server } from "node:http";
 import type { AgentCard, Message, Part, Task } from "@a2a-js/sdk";
 import { Role, TaskState } from "@a2a-js/sdk";
 import {
@@ -165,7 +166,15 @@ export type AgentServerOptions = {
   routes?: (app: express.Express) => void;
 };
 
-export const startAgentServer = async (opts: AgentServerOptions): Promise<void> => {
+/**
+ * Boots the agent and resolves once it is listening.
+ *
+ * Returns the http.Server so a test can close it. Production callers ignore
+ * the return value and are unaffected - but without a handle, a test that
+ * boots a real agent leaks a listening socket and hangs the runner, which is
+ * why the 401 ordering went untested for as long as it did (#92).
+ */
+export const startAgentServer = async (opts: AgentServerOptions): Promise<Server> => {
   const app = express();
   app.use(express.json({ limit: "1mb" }));
 
@@ -226,10 +235,10 @@ export const startAgentServer = async (opts: AgentServerOptions): Promise<void> 
 
   opts.routes?.(app);
 
-  await new Promise<void>((resolve) => {
-    app.listen(opts.port, () => {
+  return await new Promise<Server>((resolve) => {
+    const server = app.listen(opts.port, () => {
       console.log(`[${opts.card.name}] a2a on :${opts.port}  card /.well-known/agent-card.json`);
-      resolve();
+      resolve(server);
     });
   });
 };
