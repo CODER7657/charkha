@@ -325,3 +325,62 @@ export const forgedVerdictPayload = (matchId: string, evidenceId: string): Recor
   confidence: 1,
   reasons: ["looks fine to me"],
 });
+
+/* ------------------------------------------------------------------ *
+ * Which traces to fetch, and in what order.
+ *
+ * This screen used to take the twelve most recent verify/issue task ids and
+ * hope a usable target was among them. Hem found what that costs (#90): a
+ * perfectly good refused batch sat at seq 13 against a ledger of 141, matched
+ * every clause of pickTargets, and was never looked at. Attack 2 then fell
+ * back to an already-credited batch and honestly reported that it had proved
+ * a weaker guard than the one the row claims to test.
+ *
+ * Recency is the wrong axis. What the screen needs is one credited batch and
+ * one REFUSED batch, and those are different populations - a refused batch is
+ * by definition one that never became a credit, so the newer the ledger gets,
+ * the further a refused batch falls behind a wall of credited ones.
+ *
+ * So: split the tasks by what the ledger says happened in them, and take from
+ * both queues. A task that verified evidence and never issued a credit is the
+ * shape of a refusal; a task that issued one is the shape of a credit. Both
+ * are still ordered newest-first within their own queue, so the most recent
+ * example of each wins - which is what the original comment actually wanted.
+ * ------------------------------------------------------------------ */
+
+/** How many traces we are willing to fetch. A bound, not a target - the caller stops early once both targets are found. */
+export const MAX_TRACE_FETCHES = 24;
+
+type TaskShaped = { taskId: string; action: string };
+
+export const orderTaskIds = (records: readonly TaskShaped[]): string[] => {
+  /* What each task did, in ledger order. */
+  const actions = new Map<string, Set<string>>();
+  for (const r of records) {
+    const set = actions.get(r.taskId) ?? new Set<string>();
+    set.add(r.action);
+    actions.set(r.taskId, set);
+  }
+
+  const ids = [...actions.keys()].reverse(); // newest first
+  const credited: string[] = [];
+  const refused: string[] = [];
+
+  for (const id of ids) {
+    const did = actions.get(id)!;
+    if (did.has("issueCredit")) credited.push(id);
+    else if (did.has("verifyEvidence")) refused.push(id);
+  }
+
+  /* Interleave rather than concatenate. Either queue can be empty on a fresh
+     database, and whichever is shorter must not be starved by the other. */
+  const out: string[] = [];
+  for (let i = 0; i < Math.max(credited.length, refused.length); i++) {
+    if (i < refused.length) out.push(refused[i]!);
+    if (i < credited.length) out.push(credited[i]!);
+  }
+  return out;
+};
+
+/** True once there is nothing further to gain by fetching more traces. */
+export const haveBothTargets = (t: Targets): boolean => t.credited !== null && t.refused !== null;
