@@ -215,8 +215,25 @@ app.get("/status/:listId", async (req, reply) => {
 /* ---- serve the built SPA from the same origin ---- */
 try {
   await app.register(fastifyStatic, { root: webDist, prefix: "/" });
+  /* The fallback exists so a deep link like /#audit reloads. It must never
+     answer for anything a machine fetches.
+
+     A miss under /models or /ort used to return 200 with index.html, and
+     onnxruntime does not check content types - it takes the bytes and fails
+     deep inside a wasm parse, with an error that names neither the file nor
+     the fact that it was never there. Hem hit exactly this: on the deployed
+     host /models/char-quality.json returns 410 bytes of HTML. Nothing reads
+     that sidecar today, which is the only reason it is not already breaking
+     the field view.
+
+     Same shape as /status/credits, which answered a credential request with
+     a web page. A 404 costs one line and turns both into the error they are. */
+  const MACHINE_PREFIXES = ["/api/", "/models/", "/ort/", "/status/", "/did"];
   app.setNotFoundHandler(async (req, reply) => {
-    if (req.url.startsWith("/api/")) return reply.code(404).send({ error: "not found" });
+    const path = req.url.split("?")[0] ?? "";
+    if (MACHINE_PREFIXES.some((p) => path === p.replace(/\/$/, "") || path.startsWith(p))) {
+      return reply.code(404).send({ error: "not found", path });
+    }
     return reply.sendFile("index.html");
   });
 } catch {

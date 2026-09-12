@@ -124,6 +124,38 @@ if (listId && listId !== expected) {
 }
 ok(`status list URL matches this origin (${expected})`);
 
+/* 5. The assets the field view loads are the real bytes, not a web page.
+      onnxruntime does not check content types: handed index.html it fails deep
+      inside a wasm parse, with an error naming neither the file nor the fact
+      that it was never there. */
+for (const path of ["/models/char-quality.onnx", "/ort/ort-wasm-simd-threaded.asyncify.wasm"]) {
+  const res = await fetch(`${base}${path}`, { signal: AbortSignal.timeout(60_000) });
+  if (!res.ok) fail(`${path} - HTTP ${res.status}`);
+  const ct = res.headers.get("content-type") ?? "";
+  if (ct.includes("html")) {
+    fail(`${path} served as ${ct} - it is missing from dist and the SPA fallback answered`);
+  }
+  ok(`${path} served as ${ct}`);
+}
+
+/* 6. A MISS under a machine path is a 404, not the SPA.
+      This is the half the asset check above cannot see: it only proves the
+      files we do emit are fine. The moment we stop emitting one, the fallback
+      hands ort an HTML page with a 200. Hem found /models/char-quality.json
+      doing exactly that on the deployed host. */
+for (const path of ["/models/__does-not-exist.onnx", "/ort/__does-not-exist.wasm", "/api/__nope"]) {
+  const res = await fetch(`${base}${path}`, { signal: AbortSignal.timeout(30_000) });
+  if (res.status !== 404) {
+    const ct = res.headers.get("content-type") ?? "";
+    fail(
+      `${path} returned HTTP ${res.status} (${ct}) instead of 404.\n` +
+        "      The SPA fallback is answering a machine path, so a missing asset\n" +
+        "      arrives as a web page with a success code.",
+    );
+  }
+}
+ok("missing assets 404 instead of falling through to the SPA");
+
 console.log(
-  "\nsmoke passed: the mesh is alive, a skill is reachable, and revocation is publicly checkable.",
+  "\nsmoke passed: mesh alive, skill reachable, revocation publicly checkable, assets real.",
 );
