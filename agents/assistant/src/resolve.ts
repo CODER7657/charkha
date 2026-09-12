@@ -221,6 +221,8 @@ const has = (text: string, patterns: RegExp[]): boolean => patterns.some((p) => 
 const HOW_IT_WORKS = [
   /how (does|do) (this|it|charkha|the system)\b.*\bwork/,
   /how it works/,
+  /explain (charkha|this|the system|it) /,
+  /\bwhat is (this|charkha)( system| thing| app)?\b/,
   /कैसे काम करता/,
   /ਕਿਵੇਂ ਕੰਮ ਕਰਦਾ/,
   /કેવી રીતે કામ કરે/,
@@ -228,27 +230,44 @@ const HOW_IT_WORKS = [
 const RUN_MATCHING = [
   /\bmatch(ing|es)?\b/,
   /find (a|an|me a) (unit|buyer|facility)/,
+  /find (someone|somebody|anyone) to take/,
+  /who (can|will) take/,
   /मिलान/,
   /ਮਿਲਾਨ/,
   /મેચિંગ/,
 ];
 const RETIRE = [/\bretire(d|ment)?\b/, /रिटायर/, /ਰਿਟਾਇਰ/, /રિટાયર/];
 const STATUS_WORDS = [/\bstatus\b/, /\bstill (live|valid|active)\b/, /\bis it (live|valid)\b/, /स्थिति/, /ਹਾਲਤ/, /સ્થિતિ/];
+/* Asking what became of it. Romanised forms sit beside the native ones because
+   people type "kya hua" as readily as क्या हुआ, and a script boundary is not a
+   meaning boundary. */
 const LOT_STATUS = [
   /what happened/,
   /क्या हुआ/,
   /ਕੀ ਹੋਇਆ/,
   /શું થયું/,
-  /\bmy (waste|lots?|residue)\b/,
+  /\bkya hua\b/,
+  /\bki hoya\b/,
+  /\bshu thayu\b/,
+  /\bend(ed)? up\b/,
+  /what did we get for/,
+  /still sitting/,
   /हमारे कचरे/,
   /ਸਾਡੇ ਕੂੜੇ/,
   /અમારા કચરા/,
 ];
+
+/* Naming the thing as ours is a hint, not a statement of intent: "our straw"
+   appears just as often in a request to find a buyer for it. Scored below an
+   explicit verb so `run_matching` wins that sentence outright. */
+const OURS = [/\b(our|my|hamari|hamara|saade|saada) (waste|lots?|residue|straw|parali|kude)\b/];
 const IMPACT = [
   /how much (co2|carbon|impact)/,
   /कितनी co2/,
   /ਕਿੰਨੀ co2/,
   /કેટલી co2/,
+  /\bkitn[aie]\s+(co2|carbon)\b/,
+  /\b(co2|carbon)\s+bach/,
   /\b(total|overall) (co2|carbon|impact)\b/,
   /\bimpact\b/,
 ];
@@ -271,6 +290,10 @@ const candidates = (text: string, slots: AssistantSlots): Candidate[] => {
 
   if (has(text, LOT_STATUS) || (slots.lotId && has(text, STATUS_WORDS))) {
     out.push({ intent: "lot_status", score: 0.85 });
+  } else if (has(text, OURS)) {
+    /* Weaker than any explicit verb: "find someone to take our straw" is a
+       matching request that happens to mention ownership, not a status query. */
+    out.push({ intent: "lot_status", score: 0.7 });
   }
 
   /* Naming a quantity AND a feedstock is a declaration even with no verb -
