@@ -91,6 +91,12 @@ export const AuditConsole = () => {
      screen, which 404s. The counter forces a re-run when the same row is
      pressed twice. */
   const [seed, setSeed] = useState<{ taskId: string; n: number } | null>(null);
+
+  /* Where the chain broke, so we can take the reader there.
+     Verifying a tampered 185-record ledger left the list scrolled at #0 while
+     the break was at seq 40 - the banner said so and the row was nowhere on
+     screen. On stage that is a hunt in front of an audience. */
+  const brokenRowRef = useRef<HTMLLIElement | null>(null);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -135,7 +141,18 @@ export const AuditConsole = () => {
   }, [load, tamperMode]);
 
   /* The whole point: we re-derive every hash here, not on the server. */
-  const verifyHere = useCallback(() => setVerdict(verifyChain(chain)), [chain]);
+  const verifyHere = useCallback(() => {
+    const v = verifyChain(chain);
+    setVerdict(v);
+    /* Take the reader to the break. The banner naming a seq is no use when the
+       row is 40 entries down a scrolling list, which is exactly how this read
+       on the deployed host. After paint, so the class is on the element. */
+    if (!v.valid) {
+      requestAnimationFrame(() =>
+        brokenRowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }),
+      );
+    }
+  }, [chain]);
 
   const tamper = (seq: number, field: "action" | "confidence", raw: string) => {
     setChain((current) =>
@@ -209,9 +226,15 @@ export const AuditConsole = () => {
             {chain.map((rec) => (
               <li
                 key={rec.seq}
-                className={
-                  brokenAt === rec.seq ? "broken-here" : brokenAt !== null && rec.seq > brokenAt ? "after-break" : ""
-                }
+                /* row-edited scopes the warning colour to the row someone
+                   actually changed - see the note in the stylesheet. */
+                ref={brokenAt === rec.seq ? brokenRowRef : undefined}
+                className={[
+                  brokenAt === rec.seq ? "broken-here" : brokenAt !== null && rec.seq > brokenAt ? "after-break" : "",
+                  edited.has(rec.seq) ? "row-edited" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
               >
                 <span className="seq">#{rec.seq}</span>
                 <div>

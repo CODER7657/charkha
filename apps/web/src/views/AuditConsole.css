@@ -242,15 +242,36 @@
   border-bottom: 1px solid var(--line);
   background: #1a1614;
 }
+/* Tamper mode turns every row into two text boxes - on a 185-record ledger
+   that is 370 of them. With a warning-coloured border on each, the whole log
+   read as errors before anyone had touched anything, and the one row that
+   actually mattered was invisible in the noise.
+   So: quiet by default, loud only where someone has actually edited. */
 .chain input.edit {
   background: #101413;
-  border: 1px solid var(--warn);
+  border: 1px solid var(--line);
   color: var(--ink);
   border-radius: 2px;
   font: inherit;
   font-size: 13px;
   padding: 1px 5px;
   min-width: 8ch;
+}
+
+.chain input.edit:hover {
+  border-color: var(--muted);
+}
+
+/* Where the caret is, and where the damage was done. These two are the only
+   places the warning colour belongs. */
+.chain input.edit:focus-visible {
+  border-color: var(--warn);
+  outline: 1px solid var(--warn);
+  outline-offset: 0;
+}
+
+.chain li.row-edited input.edit {
+  border-color: var(--warn);
 }
 .chain .edited {
   color: var(--warn);

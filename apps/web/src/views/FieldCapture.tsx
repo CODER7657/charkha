@@ -417,8 +417,15 @@ export const FieldCapture = () => {
                     }}
                   >
                     <b>{m.unitName}</b>
+                    {/* Distance, not district, is the reliable recogniser now
+                        that the feed covers India: districtFor() only knows
+                        Punjab and Haryana, so on the deployed host twenty of
+                        twenty-five rows read "district unknown" - which
+                        distinguishes nothing. The haul is always known, and
+                        "31 km" is what a driver actually recognises. */}
                     <span>
-                      {m.district ?? t("district unknown")} · {m.assignedTonnes.toFixed(1)} t · {t(m.feedstock)}
+                      {m.district ? `${m.district} · ` : ""}
+                      {m.distanceKm.toFixed(0)} km · {m.assignedTonnes.toFixed(1)} t · {t(m.feedstock)}
                     </span>
                   </button>
                 ))}
