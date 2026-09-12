@@ -119,7 +119,9 @@ export const planCreditStatus: Planner = (slots): Plan => {
       const check = verifiabilityOf(credit, publicOrigin());
       const facts = {
         creditId: credit.creditId,
-        status: credit.status,
+        /* A key, not the enum - "issued" is an English word, and it was
+           landing inside an otherwise Punjabi sentence. */
+        status: `assistant.status.${credit.status}`,
         tonnes: credit.netTonnesCo2e,
         holder: credit.holder,
         issuedAt: credit.issuedAt,
@@ -133,7 +135,7 @@ export const planCreditStatus: Planner = (slots): Plan => {
         ? msg("assistant.credit.status", facts)
         : msg("assistant.credit.status_not_verifiable", {
             ...facts,
-            reason: check.reason,
+            reason: `assistant.reason.${check.reason}`,
             listHost: check.listHost ?? "",
           });
     },
@@ -174,7 +176,7 @@ export const planRetire: Planner = (slots): Plan => {
         creditId: credit.creditId,
         tonnes: credit.netTonnesCo2e,
         holder: credit.holder,
-        status: credit.status,
+        status: `assistant.status.${credit.status}`,
       });
     },
   };

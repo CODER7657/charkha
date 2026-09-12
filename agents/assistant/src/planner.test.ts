@@ -399,9 +399,9 @@ describe("the credit intents are wired", () => {
     );
 
     expect(out.reply.key).toBe("assistant.credit.status_not_verifiable");
-    expect(out.reply.params["reason"]).toBe("unreachable_list");
+    expect(out.reply.params["reason"]).toBe("assistant.reason.unreachable_list");
     /* Still says what it is. */
-    expect(out.reply.params["status"]).toBe("issued");
+    expect(out.reply.params["status"]).toBe("assistant.status.issued");
   });
 
   it("proposes a retirement without calling anything, then performs it on the token", async () => {
@@ -423,7 +423,7 @@ describe("the credit intents are wired", () => {
     const done = await plan(resolved, proposed.confirmation!.token, () => {});
     expect(done.performed).toBe(true);
     expect(done.reply.key).toBe("assistant.credit.retired_detail");
-    expect(done.reply.params).toMatchObject({ tonnes: 2.483, status: "retired" });
+    expect(done.reply.params).toMatchObject({ tonnes: 2.483, status: "assistant.status.retired" });
     expect(done.hops.map((h) => h.skill)).toEqual(["retireCredit"]);
   });
 
