@@ -113,7 +113,11 @@ app.get("/api/provenance", async () => {
     }
   };
 
-  const [rawModel, did] = await Promise.all([ask("verifier", "/model"), ask("registry", "/did")]);
+  const [rawModel, did, coverage] = await Promise.all([
+    ask("verifier", "/model"),
+    ask("registry", "/did"),
+    ask("producer", "/coverage"),
+  ]);
 
   /* The verifier reports {version, sha256, loaded}. Normalise it here rather
      than letting the view guess at field names - it was reading `hash` and
@@ -146,8 +150,19 @@ app.get("/api/provenance", async () => {
     model,
     issuer: did,
     feed: {
-      source: process.env["FIRMS_SOURCE"] ?? "VIIRS_NOAA20_NRT",
-      bbox: process.env["FIRMS_BBOX"] ?? null,
+      /* Prefer what the producer reports, because it is the process that
+         actually makes the request. Reading our own environment was right
+         about the box and silent about the exclusions - so after #87 this
+         host was dropping every detection inside one rectangle and nothing a
+         reader could see said so. Falls back to our own environment when the
+         producer cannot be reached, rather than claiming a coverage we did
+         not confirm. */
+      source: (coverage as { source?: string } | null)?.source ?? process.env["FIRMS_SOURCE"] ?? "VIIRS_NOAA20_NRT",
+      bbox: (coverage as { bbox?: string } | null)?.bbox ?? process.env["FIRMS_BBOX"] ?? null,
+      /* Areas inside the box we deliberately do not ingest. An empty array
+         means none; null means we could not ask, which is not the same thing
+         and must not render as "none". */
+      excluded: (coverage as { excluded?: Array<{ name: string; bbox: string }> } | null)?.excluded ?? null,
       /* No fallback number. This read `?? 2` while the producer's own
          DEFAULT_DAY_RANGE is 5, so with the variable unset the Provenance
          screen would state a five-day methodology as two - a published number
@@ -156,7 +171,9 @@ app.get("/api/provenance", async () => {
          default without inverting the layering, and a second copy of the
          constant here is the same drift with extra steps. So: report what is
          set, and say plainly when nothing is. Found by Harsh in #48. */
-      dayRange: process.env["FIRMS_DAY_RANGE"] ? Number(process.env["FIRMS_DAY_RANGE"]) : null,
+      dayRange:
+        (coverage as { dayRange?: number } | null)?.dayRange ??
+        (process.env["FIRMS_DAY_RANGE"] ? Number(process.env["FIRMS_DAY_RANGE"]) : null),
       /* Says what the instrument cannot do, not only what it is. A thermal
          sensor sees nothing through cloud, and two overpasses a day is two
          looks - both are properties a reader should not have to know to

@@ -1,6 +1,7 @@
 import { loadEnv, buildAgentCard, startAgentServer } from "@charkha/a2a";
 import { ListLotsInput, IngestBurnsInput, DeclareWasteInput } from "@charkha/core";
 import { AGENT_NAME, AGENT_VERSION } from "./card.ts";
+import { DEFAULT_BBOX, DEFAULT_DAY_RANGE, DEFAULT_SOURCE, EXCLUDED } from "./firms.ts";
 import { ingestBurns } from "./skills/ingestBurns.ts";
 import { listLots } from "./skills/listLots.ts";
 import { declareWaste } from "./skills/declareWaste.ts";
@@ -33,5 +34,35 @@ await startAgentServer({
     ingestBurns: { input: IngestBurnsInput, run: ingestBurns },
     listLots: { input: ListLotsInput, run: listLots },
     declareWaste: { input: DeclareWasteInput, run: declareWaste },
+  },
+  routes: (app) => {
+    /**
+     * What area this host actually pulls, reported by the only process that
+     * can know it.
+     *
+     * The Provenance screen was reading FIRMS_BBOX straight out of the
+     * gateway's environment, which is right for the box but silent about the
+     * exclusions - so after #87 the deployed system was dropping every
+     * detection in one rectangle and nothing anywhere said so. Rule 7 is that
+     * a number a reader sees has to carry where it came from, and "the area
+     * we cover" is a number like any other.
+     *
+     * Reported from the producer's own constants rather than copied into the
+     * gateway, for the same reason dayRange is not copied: a second copy is
+     * the same drift with extra steps. The gateway asks, exactly as it asks
+     * the verifier for its model and the registry for its DID.
+     */
+    app.get("/coverage", (_req, res) => {
+      res.json({
+        source: process.env["FIRMS_SOURCE"] ?? DEFAULT_SOURCE,
+        bbox: process.env["FIRMS_BBOX"] ?? DEFAULT_BBOX,
+        bboxIsDefault: !process.env["FIRMS_BBOX"],
+        dayRange: process.env["FIRMS_DAY_RANGE"] ? Number(process.env["FIRMS_DAY_RANGE"]) : DEFAULT_DAY_RANGE,
+        excluded: EXCLUDED.map((b) => ({
+          name: b.name,
+          bbox: `${b.west},${b.south},${b.east},${b.north}`,
+        })),
+      });
+    });
   },
 });

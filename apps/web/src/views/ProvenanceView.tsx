@@ -29,7 +29,14 @@ type Provenance = {
   carbon: { factors: Factor[]; formula: string };
   model: { version: string | null; hash: string | null; loaded: boolean; trained: boolean } | null;
   issuer: { did?: string } | null;
-  feed: { source: string; bbox: string | null; dayRange: number | null; note: string };
+  feed: {
+    source: string;
+    bbox: string | null;
+    /** Boxes inside the bbox we deliberately drop. null = we could not ask. */
+    excluded: Array<{ name: string; bbox: string }> | null;
+    dayRange: number | null;
+    note: string;
+  };
 };
 
 /* What is genuinely built, what is scoped down, and what we did not attempt.
@@ -42,6 +49,10 @@ const HONESTY: Array<{ what: string; status: "real" | "partial" | "no"; note: st
   { what: "W3C Verifiable Credential issuance", status: "real", note: "Locally generated did:key. Signature checked in your browser, not by our database." },
   { what: "ONNX inference, server and browser", status: "real", note: "One model file, two runtimes, agreement asserted by a parity test." },
   { what: "Live satellite feed", status: "real", note: "NASA FIRMS, near-real-time. Every response says which source answered." },
+  /* The area itself is a claim, and after #87 it was one the reader could not
+     check: we pull a rectangle, drop one rectangle inside it, and until this
+     row the screen said only the first half. */
+  { what: "The area we cover", status: "partial", note: "We request a rectangle from FIRMS, and the subcontinent is not a rectangle - so the box necessarily contains sea and neighbouring territory. One box inside it is dropped, listed below with its coordinates, and the rule for dropping one is that no part of India lies inside it. This is NOT a border filter: detections in Pakistan, Nepal and Myanmar stay in the feed and on the map, because any rectangle drawn around them would take Indian land with it. We say where a detection was; we do not claim to know which country it was in." },
   { what: "What the satellite can see", status: "partial", note: "VIIRS is a thermal sensor: cloud blocks it outright, and NOAA-20 passes twice a day, so a fire under cloud or one that burns out between overpasses is simply never detected. We cannot estimate what we miss. This is why declaring waste exists as a second path in and not only as a convenience." },
   { what: "Agent-to-agent authentication", status: "real", note: "Bearer token required; an unauthenticated call is refused with 401." },
   { what: "One photograph, one credit", status: "real", note: "Unique index on the image hash. Five concurrent claims on one photo leave exactly one row - the database decides it, not a check we could forget." },
@@ -177,6 +188,23 @@ export const ProvenanceView = () => {
                     answer - printing a plausible default here would state a
                     methodology nobody configured. */}
                 <dd>{!p ? "…" : p.feed.dayRange === null ? "not set on this host" : `${p.feed.dayRange} days`}</dd>
+              </div>
+              <div>
+                <dt>dropped from it</dt>
+                {/* Three different states, and collapsing any two would be a
+                    lie. Loading is "…". `null` means the producer did not
+                    answer, so we do not know - which is NOT the same as
+                    nothing being dropped. An empty array is the real "nothing
+                    is dropped". */}
+                <dd>
+                  {!p
+                    ? "…"
+                    : p.feed.excluded === null
+                      ? "could not ask the producer"
+                      : p.feed.excluded.length === 0
+                        ? "nothing - the whole box is ingested"
+                        : p.feed.excluded.map((b) => `${b.name} (${b.bbox})`).join("; ")}
+                </dd>
               </div>
             </dl>
             <p className="pv-note">{p?.feed.note}</p>
