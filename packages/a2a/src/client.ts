@@ -55,6 +55,9 @@ export const isCallerError = (text: string): boolean =>
       "malformed evidence",
       "was already submitted with different content",
       "is being verified by another",
+      // Re-using one photograph across matches is the caller double counting,
+      // not a fault on our side.
+      "refusing to credit the same image",
     ].join("|"),
     "i",
   ).test(text);

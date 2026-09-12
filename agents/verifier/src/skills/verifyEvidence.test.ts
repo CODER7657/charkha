@@ -3,6 +3,7 @@ import type { FieldEvidence, VerifyEvidenceOutput } from "@charkha/core";
 import type { LoadedModel } from "../onnx.ts";
 import { CANARY_PREFIX, CLASSES, type ClassScores } from "../protocol.ts";
 import {
+  DuplicatePhotoError,
   MalformedEvidenceError,
   THRESHOLDS,
   makeVerifyEvidence,
@@ -56,6 +57,7 @@ const setup = (opts: { model?: Partial<LoadedModel>; match?: MatchFacts | null; 
     agentCardId: "http://localhost:4003/.well-known/agent-card.json",
     findMatch: vi.fn(async () => (opts.match === undefined ? MATCH : opts.match)),
     findPrior: vi.fn(async (_id: string): Promise<PriorEvidence | null> => opts.prior ?? null),
+    findByImageHash: vi.fn(async (_h: string): Promise<{ evidenceId: string; matchId: string } | null> => null),
     claimEvidence: vi.fn(async (_e: FieldEvidence, _taskId: string) => true),
     appendDecision: vi.fn(async () => ({})),
     saveVerification: vi.fn(async (_v: VerifyEvidenceOutput, _taskId: string) => {}),
@@ -308,6 +310,13 @@ describe("verifyEvidence - offline retries are idempotent", () => {
       await gap();
       return rows.get(id) ?? null;
     });
+    deps.findByImageHash.mockImplementation(async (h: string) => {
+      await gap();
+      for (const p of rows.values()) {
+        if (p.evidence.imageHash === h) return { evidenceId: p.evidence.evidenceId, matchId: p.evidence.matchId };
+      }
+      return null;
+    });
     deps.claimEvidence.mockImplementation(async (e: FieldEvidence) => {
       await gap();
       if (rows.has(e.evidenceId)) return false;
@@ -333,5 +342,81 @@ describe("verifyEvidence - offline retries are idempotent", () => {
     deps.claimEvidence.mockResolvedValueOnce(false);
     await expect(verify(evidence(), ctx)).rejects.toThrow(/another verifier process/);
     expect(deps.appendDecision).not.toHaveBeenCalled();
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * One photograph, one piece of evidence.
+ *
+ * Every other guard here is keyed on evidenceId, which is chosen by the
+ * caller - so the cheapest way to be paid twice for one pile was to submit
+ * the same photo under a new id against a second match. Nothing refused it:
+ * the canary is seeded from the imageHash, so it attests the duplicate just
+ * as happily as the original.
+ * ------------------------------------------------------------------ */
+describe("verifyEvidence - one photograph cannot be spent twice", () => {
+  it("refuses a photo already submitted under a different evidence id", async () => {
+    const { deps, verify } = setup();
+    deps.findByImageHash.mockResolvedValueOnce({ evidenceId: "evi_first", matchId: "match_first" });
+
+    await expect(verify(evidence({ evidenceId: "evi_second" }), ctx)).rejects.toThrow(
+      /refusing to credit the same image twice/,
+    );
+  });
+
+  it("names the earlier evidence so an honest retry knows which one counted", async () => {
+    const { deps, verify } = setup();
+    deps.findByImageHash.mockResolvedValueOnce({ evidenceId: "evi_first", matchId: "match_first" });
+
+    await expect(verify(evidence({ evidenceId: "evi_second" }), ctx)).rejects.toThrow(
+      /evi_first.*match_first/,
+    );
+  });
+
+  it("refuses before inference, the ledger, and the evidence row", async () => {
+    const { deps, run, verify } = setup();
+    deps.findByImageHash.mockResolvedValueOnce({ evidenceId: "evi_first", matchId: "match_first" });
+
+    await expect(verify(evidence({ evidenceId: "evi_second" }), ctx)).rejects.toThrow();
+    expect(run).not.toHaveBeenCalled();
+    expect(deps.claimEvidence).not.toHaveBeenCalled();
+    expect(deps.appendDecision).not.toHaveBeenCalled();
+    expect(deps.saveVerification).not.toHaveBeenCalled();
+  });
+
+  /* The offline queue retries the same submission. That is the same photo AND
+     the same id, and it must keep working - the replay path above owns it. */
+  it("still replays a retry of the same evidence id", async () => {
+    const first = await setup().verify(evidence(), ctx);
+    const { deps, verify } = setup({ prior: { evidence: evidence(), verification: first } });
+
+    await expect(verify(evidence(), ctx)).resolves.toEqual(first);
+    expect(deps.findByImageHash).not.toHaveBeenCalled();
+    expect(deps.appendDecision).not.toHaveBeenCalled();
+  });
+
+  /* Losing the race to a concurrent submission of the same photo must read as
+     the same refusal, not as a transient "retry shortly". Only the database
+     can decide this one, so claimEvidence is where it surfaces. */
+  it("turns a lost race on the unique index into the same refusal", async () => {
+    const { deps, verify } = setup();
+    deps.claimEvidence.mockRejectedValueOnce(
+      new DuplicatePhotoError({ evidenceId: "evi_first", matchId: "match_first" }),
+    );
+
+    await expect(verify(evidence({ evidenceId: "evi_second" }), ctx)).rejects.toThrow(
+      /refusing to credit the same image twice/,
+    );
+    expect(deps.appendDecision).not.toHaveBeenCalled();
+  });
+
+  it("a different photograph on a different match is untouched", async () => {
+    const { deps, verify } = setup();
+    const out = await verify(
+      evidence({ evidenceId: "evi_other", matchId: "match_other", imageHash: "c".repeat(64) }),
+      ctx,
+    );
+    expect(out.verdict).toBe("accepted");
+    expect(deps.claimEvidence).toHaveBeenCalledOnce();
   });
 });

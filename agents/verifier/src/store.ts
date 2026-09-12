@@ -1,6 +1,6 @@
 import { db, schema, eq } from "@charkha/db";
 import type { FieldEvidence, VerifyEvidenceOutput } from "@charkha/core";
-import type { MatchFacts, PriorEvidence } from "./skills/verifyEvidence.ts";
+import { DuplicatePhotoError, type MatchFacts, type PriorEvidence } from "./skills/verifyEvidence.ts";
 
 /**
  * OWNER: Hem
@@ -56,24 +56,59 @@ export const findPrior = async (evidenceId: string): Promise<PriorEvidence | nul
   return { evidence, verification };
 };
 
+/** The evidence row that already used this photo, if any. */
+export const findByImageHash = async (
+  imageHash: string,
+): Promise<{ evidenceId: string; matchId: string } | null> => {
+  const [row] = await db()
+    .select({ evidenceId: schema.evidence.evidenceId, matchId: schema.evidence.matchId })
+    .from(schema.evidence)
+    .where(eq(schema.evidence.imageHash, imageHash))
+    .limit(1);
+  return row ?? null;
+};
+
+/**
+ * Postgres reports a violated unique index as 23505 plus the constraint name.
+ * We read the name because this table now has two, and they mean opposite
+ * things: a clash on the primary key is a retry, a clash on the image hash is
+ * a refusal.
+ */
+const isUniqueViolation = (err: unknown, constraint: string): boolean => {
+  const e = err as { code?: string; constraint?: string; cause?: { code?: string; constraint?: string } };
+  return (e?.code ?? e?.cause?.code) === "23505" && (e?.constraint ?? e?.cause?.constraint) === constraint;
+};
+
 export const claimEvidence = async (e: FieldEvidence, _taskId: string): Promise<boolean> => {
-  const inserted = await db()
-    .insert(schema.evidence)
-    .values({
-      evidenceId: e.evidenceId,
-      matchId: e.matchId,
-      lat: e.at.lat,
-      lon: e.at.lon,
-      capturedAt: new Date(e.capturedAt),
-      imageHash: e.imageHash,
-      modelHash: e.modelHash,
-      modelVersion: e.modelVersion,
-      clientScores: e.clientScores,
-      batch: e.batch,
-    })
-    .onConflictDoNothing()
-    .returning({ evidenceId: schema.evidence.evidenceId });
-  return inserted.length === 1;
+  try {
+    const inserted = await db()
+      .insert(schema.evidence)
+      .values({
+        evidenceId: e.evidenceId,
+        matchId: e.matchId,
+        lat: e.at.lat,
+        lon: e.at.lon,
+        capturedAt: new Date(e.capturedAt),
+        imageHash: e.imageHash,
+        modelHash: e.modelHash,
+        modelVersion: e.modelVersion,
+        clientScores: e.clientScores,
+        batch: e.batch,
+      })
+      /* Target the primary key on purpose. A bare onConflictDoNothing() also
+         swallows the image-hash violation and returns false, which the skill
+         reports as "another verifier process is working on it" - telling a
+         field worker to retry something that will never succeed, and hiding a
+         double-count attempt behind a transient-looking message. */
+      .onConflictDoNothing({ target: schema.evidence.evidenceId })
+      .returning({ evidenceId: schema.evidence.evidenceId });
+    return inserted.length === 1;
+  } catch (err) {
+    if (!isUniqueViolation(err, "evidence_image_hash_uq")) throw err;
+    // Lost the race to a concurrent submission of the same photo. Same
+    // refusal the pre-check would have given, now that the winner is visible.
+    throw new DuplicatePhotoError(await findByImageHash(e.imageHash));
+  }
 };
 
 export const saveVerification = async (v: VerifyEvidenceOutput, taskId: string): Promise<void> => {
