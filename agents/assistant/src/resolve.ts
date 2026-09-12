@@ -221,6 +221,8 @@ const has = (text: string, patterns: RegExp[]): boolean => patterns.some((p) => 
 const HOW_IT_WORKS = [
   /how (does|do) (this|it|charkha|the system)\b.*\bwork/,
   /how it works/,
+  /explain (charkha|this|the system|it) /,
+  /\bwhat is (this|charkha)( system| thing| app)?\b/,
   /कैसे काम करता/,
   /ਕਿਵੇਂ ਕੰਮ ਕਰਦਾ/,
   /કેવી રીતે કામ કરે/,
@@ -228,27 +230,44 @@ const HOW_IT_WORKS = [
 const RUN_MATCHING = [
   /\bmatch(ing|es)?\b/,
   /find (a|an|me a) (unit|buyer|facility)/,
+  /find (someone|somebody|anyone) to take/,
+  /who (can|will) take/,
   /मिलान/,
   /ਮਿਲਾਨ/,
   /મેચિંગ/,
 ];
 const RETIRE = [/\bretire(d|ment)?\b/, /रिटायर/, /ਰਿਟਾਇਰ/, /રિટાયર/];
 const STATUS_WORDS = [/\bstatus\b/, /\bstill (live|valid|active)\b/, /\bis it (live|valid)\b/, /स्थिति/, /ਹਾਲਤ/, /સ્થિતિ/];
+/* Asking what became of it. Romanised forms sit beside the native ones because
+   people type "kya hua" as readily as क्या हुआ, and a script boundary is not a
+   meaning boundary. */
 const LOT_STATUS = [
   /what happened/,
   /क्या हुआ/,
   /ਕੀ ਹੋਇਆ/,
   /શું થયું/,
-  /\bmy (waste|lots?|residue)\b/,
+  /\bkya hua\b/,
+  /\bki hoya\b/,
+  /\bshu thayu\b/,
+  /\bend(ed)? up\b/,
+  /what did we get for/,
+  /still sitting/,
   /हमारे कचरे/,
   /ਸਾਡੇ ਕੂੜੇ/,
   /અમારા કચરા/,
 ];
+
+/* Naming the thing as ours is a hint, not a statement of intent: "our straw"
+   appears just as often in a request to find a buyer for it. Scored below an
+   explicit verb so `run_matching` wins that sentence outright. */
+const OURS = [/\b(our|my|hamari|hamara|saade|saada) (waste|lots?|residue|straw|parali|kude)\b/];
 const IMPACT = [
   /how much (co2|carbon|impact)/,
   /कितनी co2/,
   /ਕਿੰਨੀ co2/,
   /કેટલી co2/,
+  /\bkitn[aie]\s+(co2|carbon)\b/,
+  /\b(co2|carbon)\s+bach/,
   /\b(total|overall) (co2|carbon|impact)\b/,
   /\bimpact\b/,
 ];
@@ -261,9 +280,7 @@ const candidates = (text: string, slots: AssistantSlots): Candidate[] => {
   if (has(text, RUN_MATCHING)) out.push({ intent: "run_matching", score: 0.85 });
   if (has(text, IMPACT)) out.push({ intent: "impact_summary", score: 0.85 });
 
-  /* A write needs its object. Without one this is not a low-scoring write,
-     it is not a write at all - which is what keeps a coin flip off the ledger. */
-  if (has(text, RETIRE) && slots.creditId) out.push({ intent: "retire_credit", score: 0.9 });
+  if (has(text, RETIRE)) out.push({ intent: "retire_credit", score: 0.9 });
 
   if (slots.creditId && (has(text, STATUS_WORDS) || /\?|क्या|ਕੀ|શું/.test(text))) {
     out.push({ intent: "credit_status", score: 0.85 });
@@ -271,29 +288,54 @@ const candidates = (text: string, slots: AssistantSlots): Candidate[] => {
 
   if (has(text, LOT_STATUS) || (slots.lotId && has(text, STATUS_WORDS))) {
     out.push({ intent: "lot_status", score: 0.85 });
+  } else if (has(text, OURS)) {
+    /* Weaker than any explicit verb: "find someone to take our straw" is a
+       matching request that happens to mention ownership, not a status query. */
+    out.push({ intent: "lot_status", score: 0.7 });
   }
 
   /* Naming a quantity AND a feedstock is a declaration even with no verb -
-     "3 tonnes of paddy straw in Ludhiana" is how someone actually says it.
-     One without the other stays under the mutating floor on purpose. */
+     "3 tonnes of paddy straw in Ludhiana" is how someone actually says it. A
+     bare "declare" is still offered as a candidate, and namesItsObject below
+     is the single place that throws it out - two places agreeing by luck is
+     how they drift apart later. */
   if (slots.tonnes !== undefined && slots.feedstock) {
     out.push({ intent: "declare_waste", score: has(text, DECLARE) ? 0.95 : 0.9 });
-  } else if (has(text, DECLARE) && (slots.tonnes !== undefined || slots.feedstock)) {
+  } else if (has(text, DECLARE)) {
     out.push({ intent: "declare_waste", score: 0.6 });
   }
 
   return out;
 };
 
+/* ---------- the object rule: one place, both tiers ---------- */
+
+/**
+ * A write must name what it acts on.
+ *
+ * This is the guarantee, and it is structural rather than numerical: no
+ * threshold anywhere can recover a credit id that was never typed. It is
+ * applied to pattern candidates and embedding candidates alike, in one place,
+ * because an embedding can be 0.97 confident that a sentence MEANS "retire my
+ * credit" while naming no credit at all - and the gate above this file only
+ * ever sees a number.
+ */
+export const namesItsObject = (intent: AssistantIntent, slots: AssistantSlots): boolean => {
+  if (intent === "retire_credit") return Boolean(slots.creditId);
+  if (intent === "declare_waste") return slots.tonnes !== undefined && Boolean(slots.feedstock);
+  return true;
+};
+
 /* ---------- resolve ---------- */
 
-export const resolve = (utterance: string, _lang: AssistantLang): Resolution => {
+const unknownAt = (slots: AssistantSlots = {}): Resolution => ({ intent: "unknown", slots, confidence: 0 });
+
+/** Normalise once, and pull out every slot the sentence carries. */
+const read = (utterance: string): { text: string; slots: AssistantSlots } => {
   const text = normalise(utterance);
-  const unknown = (slots: AssistantSlots = {}): Resolution => ({ intent: "unknown", slots, confidence: 0 });
-
-  if (!text) return unknown();
-
   const slots: AssistantSlots = {};
+  if (!text) return { text, slots };
+
   const lotId = LOT_ID.exec(utterance)?.[0];
   const creditId = CREDIT_ID.exec(utterance)?.[0];
   const taskId = UUID.exec(utterance)?.[0];
@@ -308,11 +350,51 @@ export const resolve = (utterance: string, _lang: AssistantLang): Resolution => 
   const district = readDistrict(text);
   if (district) slots.district = district;
 
-  /* No candidate means no reading of this sentence, which is `unknown` with
-     nothing to hedge. Otherwise report the honest score and let the gate in
-     answer.ts decide whether that is enough to act on. */
-  const best = candidates(text, slots).sort((a, b) => b.score - a.score)[0];
-  if (!best) return unknown(slots);
-
-  return { intent: best.intent, slots, confidence: best.score };
+  return { text, slots };
 };
+
+/**
+ * The single chokepoint. Filter by the object rule, then take the best.
+ *
+ * No candidate left means no reading of this sentence, which is `unknown` with
+ * nothing to hedge. Otherwise report the honest score and let MIN_CONFIDENCE
+ * in answer.ts decide whether that is enough to act on.
+ */
+const pick = (all: Candidate[], slots: AssistantSlots): Resolution => {
+  const eligible = all.filter((c) => namesItsObject(c.intent, slots));
+  const best = eligible.sort((a, b) => b.score - a.score)[0];
+  return best ? { intent: best.intent, slots, confidence: best.score } : unknownAt(slots);
+};
+
+/** Tier 1 only: patterns, synchronous, no model. */
+export const resolve = (utterance: string, _lang: AssistantLang): Resolution => {
+  const { text, slots } = read(utterance);
+  if (!text) return unknownAt();
+  return pick(candidates(text, slots), slots);
+};
+
+export type EmbedCandidates = (text: string) => Promise<Candidate[]>;
+
+/**
+ * Tier 1 + Tier 2.
+ *
+ * Async because ONNX inference is. `answer.ts` currently types `Resolve` as
+ * synchronous and calls it without `await`, so wiring this in needs one line
+ * changed there as well as the injection - see the note on #62. Until then the
+ * synchronous `resolve` above is what ships, and this is additive.
+ *
+ * With no embedder supplied this is exactly Tier 1, which is also the state
+ * when the flag is off, the model is missing, or loading failed.
+ */
+export const makeResolver =
+  (deps: { embedCandidates?: EmbedCandidates }) =>
+  async (utterance: string, _lang: AssistantLang): Promise<Resolution> => {
+    const { text, slots } = read(utterance);
+    if (!text) return unknownAt();
+
+    const patterned = candidates(text, slots);
+    /* A broken model degrades to Tier 1 rather than failing the request. */
+    const embedded = deps.embedCandidates ? await deps.embedCandidates(text).catch(() => []) : [];
+
+    return pick([...patterned, ...embedded], slots);
+  };

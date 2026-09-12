@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AssistantIntent, AssistantLang } from "@charkha/core";
-import { resolve } from "./resolve.ts";
+import { makeResolver, resolve } from "./resolve.ts";
 import { MIN_CONFIDENCE } from "./answer.ts";
 
 /* ------------------------------------------------------------------ *
@@ -365,4 +365,104 @@ describe("the fixtures are written in the script they claim", () => {
       ).toEqual([]);
     });
   }
+});
+
+/* ------------------------------------------------------------------ *
+ * Sentences a person actually types, which Tier 1 originally missed.
+ *
+ * Collected from #62's own examples plus the obvious neighbours. Most are not
+ * semantic gaps at all: they are romanised forms of phrases already matched in
+ * native script ("kya hua" for क्या हुआ), or a pronoun the patterns did not
+ * cover ("our waste" where only "my waste" was listed).
+ *
+ * Kept as its own corpus so the residual - the ones that genuinely need
+ * semantics rather than vocabulary - stays visible and honest.
+ * ------------------------------------------------------------------ */
+describe("phrasings we did not anticipate", () => {
+  const CORPUS: Array<[string, AssistantLang, AssistantIntent]> = [
+    ["where did the parali from our village end up", "en", "lot_status"],
+    ["what did we get for our waste", "en", "lot_status"],
+    ["is our straw still sitting there", "en", "lot_status"],
+    ["hamari parali ka kya hua", "en", "lot_status"],
+    ["saade kude da ki hoya", "en", "lot_status"],
+    ["kitna carbon bacha", "en", "impact_summary"],
+    ["kitni CO2 bachi Ludhiana se", "en", "impact_summary"],
+    ["can you find someone to take our straw", "en", "run_matching"],
+    ["explain charkha to me", "en", "how_it_works"],
+    ["what is this system", "en", "how_it_works"],
+  ];
+
+  it.each(CORPUS)("%s [%s] -> %s", (utterance, lang, want) => {
+    const r = resolve(utterance, lang);
+    expect(r.intent).toBe(want);
+    expect(r.confidence).toBeGreaterThanOrEqual(MIN_CONFIDENCE);
+  });
+
+  /* The guarantee has to hold on this corpus too, not just the curated one. */
+  it("none of these reach a write intent", () => {
+    for (const [utterance, lang] of CORPUS) {
+      const r = resolve(utterance, lang);
+      expect(["declare_waste", "retire_credit"]).not.toContain(r.intent);
+    }
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * Tier 2 candidates go through the same gate as Tier 1 candidates.
+ *
+ * An embedding is a similarity score. It can be 0.97 confident that a sentence
+ * MEANS "retire my credit" while no credit was named anywhere in it - and if
+ * that reaches the planner, everything the structural guarantee bought is
+ * gone, because the gate above only sees a number.
+ *
+ * So the slot requirement is applied once, to the merged list, before the
+ * sort. Not as a threshold: as a filter on what is even eligible.
+ * ------------------------------------------------------------------ */
+describe("an embedding cannot smuggle a write past the slot requirement", () => {
+  const always = (intent: AssistantIntent, score: number) => async () => [{ intent, score }];
+
+  it("drops a confident retire_credit when no credit is named", async () => {
+    const resolver = makeResolver({ embedCandidates: always("retire_credit", 0.97) });
+    const r = await resolver("please close that one off for us", "en");
+
+    expect(r.intent).not.toBe("retire_credit");
+    expect(r.slots.creditId).toBeUndefined();
+  });
+
+  it("drops a confident declare_waste when no quantity and crop are named", async () => {
+    const resolver = makeResolver({ embedCandidates: always("declare_waste", 0.99) });
+    const r = await resolver("we have some stuff to get rid of", "en");
+
+    expect(r.intent).not.toBe("declare_waste");
+  });
+
+  it("keeps the write when the sentence does name its object", async () => {
+    const resolver = makeResolver({ embedCandidates: always("retire_credit", 0.97) });
+    const r = await resolver("please close off crd_d17eb9d2cd204ed497c5 for us", "en");
+
+    expect(r.intent).toBe("retire_credit");
+    expect(r.slots.creditId).toBe("crd_d17eb9d2cd204ed497c5");
+  });
+
+  it("lets a read intent through on the embedding path alone", async () => {
+    const resolver = makeResolver({ embedCandidates: always("lot_status", 0.8) });
+    const r = await resolver("any news on the load we sent last week", "en");
+
+    expect(r.intent).toBe("lot_status");
+    expect(r.confidence).toBeGreaterThanOrEqual(MIN_CONFIDENCE);
+  });
+
+  it("patterns still win when they score higher than the embedding", async () => {
+    const resolver = makeResolver({ embedCandidates: always("impact_summary", 0.55) });
+    const r = await resolver("how does this work", "en");
+
+    expect(r.intent).toBe("how_it_works");
+  });
+
+  it("with no embedder it behaves exactly like Tier 1", async () => {
+    const resolver = makeResolver({});
+    for (const u of ["how does this work", "retire it", "asdkjh qwe"]) {
+      expect((await resolver(u, "en")).intent).toBe(resolve(u, "en").intent);
+    }
+  });
 });
