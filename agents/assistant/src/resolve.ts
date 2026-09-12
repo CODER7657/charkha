@@ -133,6 +133,20 @@ const FEEDSTOCK_WORDS: Array<[string, FeedstockClass]> = ([
   ["corn stover", "maize_stover"],
   ["cane trash", "sugarcane_trash"],
   ["sugarcane", "sugarcane_trash"],
+  /* Romanised, because people type Hinglish in one sentence: "saadhe teen tan
+     parali Ludhiana" mixes a spoken quantity with a transliterated crop and no
+     script boundary anywhere. Without these the quantity resolves, the crop
+     does not, and the whole declaration is silently refused. */
+  ["paraali", "paddy_straw"],
+  ["parali", "paddy_straw"],
+  ["jhona", "paddy_straw"],
+  ["dhan", "paddy_straw"],
+  ["kanak", "wheat_straw"],
+  ["gehun", "wheat_straw"],
+  ["bhusa", "wheat_straw"],
+  ["ganna", "sugarcane_trash"],
+  ["makki", "maize_stover"],
+  ["makka", "maize_stover"],
   ["ਪਰਾਲੀ", "paddy_straw"],
   ["पराली", "paddy_straw"],
   ["ડાંગર", "paddy_straw"],

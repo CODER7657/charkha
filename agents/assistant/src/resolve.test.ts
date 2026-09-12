@@ -283,6 +283,27 @@ describe("feedstock, by the same words the field view already uses", () => {
   it("leaves feedstock unset when none is named", () => {
     expect(fs("match my lots", "en")).toBeUndefined();
   });
+
+  /* People type Hinglish. "saadhe teen tan parali" is one sentence, not a
+     script boundary, and the quantity half already works - so the feedstock
+     half failing means the whole declaration is silently refused. */
+  it("maps the romanised names people actually type", () => {
+    expect(fs("saadhe teen tan parali Ludhiana", "en")).toBe("paddy_straw");
+    expect(fs("2 tan kanak Moga", "en")).toBe("wheat_straw");
+    expect(fs("3 tan ganna Patiala", "en")).toBe("sugarcane_trash");
+    expect(fs("4 tan makki Karnal", "en")).toBe("maize_stover");
+  });
+});
+
+describe("a Hinglish declaration resolves, it does not silently refuse", () => {
+  it("reads quantity, feedstock and district from one romanised sentence", () => {
+    const r = resolve("saadhe teen tan parali Ludhiana", "en");
+    expect(r.intent).toBe("declare_waste");
+    expect(r.slots.tonnes).toBe(3.5);
+    expect(r.slots.feedstock).toBe("paddy_straw");
+    expect(r.slots.district).toBe("Ludhiana");
+    expect(r.confidence).toBeGreaterThanOrEqual(MUTATING_FLOOR);
+  });
 });
 
 describe("district, from the list the producer actually uses", () => {
