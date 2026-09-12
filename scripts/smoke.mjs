@@ -57,4 +57,105 @@ if (!lots.taskId) {
 if (lots.output === undefined) fail(`/api/lots task ${lots.taskId} returned no output`);
 ok(`producer.listLots reachable - task ${lots.taskId} completed`);
 
-console.log("\nsmoke passed: the mesh is alive and a skill is reachable end to end.");
+/* 3. The published status list is actually a credential, and actually public.
+      Every credential names this URL inside its own signature, so it cannot be
+      corrected after issuing. It had no route on the gateway and fell through
+      to the SPA fallback: HTTP 200, content-type text/html, an index.html page
+      where a signed credential should be. A holder following that URL got a
+      success code and a web page.
+
+      Checking the status code alone is what let it through, so this checks the
+      thing itself - three segments, and a payload carrying a bitstring. */
+const statusRes = await fetch(`${base}/status/credits`, { signal: AbortSignal.timeout(30_000) });
+if (!statusRes.ok) fail(`/status/credits - HTTP ${statusRes.status}`);
+
+const jwt = (await statusRes.text()).trim();
+const ctype = statusRes.headers.get("content-type") ?? "";
+
+/* Say what actually happened. An HTML body splits on "." into whatever number
+   of pieces its asset paths happen to produce - the deployed page gave exactly
+   three - so a segment count alone reports this as a base64 problem and sends
+   whoever is reading to the wrong place. */
+if (ctype.includes("html") || jwt.startsWith("<")) {
+  fail(
+    `/status/credits returned a web page, not a credential (content-type ${ctype}).\n` +
+      `      First bytes: ${jwt.slice(0, 80)}\n` +
+      "      The gateway has no route for this path, so the SPA fallback answered\n" +
+      "      with index.html and HTTP 200 - see apps/gateway/src/index.ts.",
+  );
+}
+
+const parts = jwt.split(".");
+if (parts.length !== 3) {
+  fail(`/status/credits is not a compact JWT: ${parts.length} segment(s), content-type ${ctype}`);
+}
+
+const decode = (seg, what) => {
+  try {
+    return JSON.parse(Buffer.from(seg, "base64url").toString("utf8"));
+  } catch {
+    return fail(
+      `/status/credits ${what} segment is not base64url JSON (content-type ${ctype}).\n` +
+        `      First bytes of the body: ${jwt.slice(0, 80)}`,
+    );
+  }
+};
+
+const header = decode(parts[0], "header");
+if (!header.alg) fail("/status/credits header carries no alg - it is not a signed credential");
+
+const payload = decode(parts[1], "payload");
+const subject = (payload.vc ?? payload).credentialSubject ?? {};
+if (!subject.encodedList) fail("/status/credits carries no encodedList - it is not a status list");
+ok(`status list published and signed (purpose ${subject.statusPurpose ?? "?"})`);
+
+/* 4. The URL baked into new credentials resolves to where we just read it from.
+      If these differ, credentials issued right now name an address no holder
+      can reach - inside the signature, so no later deploy repairs them. */
+const listId = String(subject.id ?? "").replace(/#.*$/, "");
+const expected = new URL("/status/credits", base).toString();
+if (listId && listId !== expected) {
+  fail(
+    `the status list calls itself ${listId}\n` +
+      `      but we fetched it from ${expected}.\n` +
+      "      PUBLIC_BASE_URL is wrong for this deployment. Every credential issued in\n" +
+      "      this state names an unreachable list, inside its signature - reissue them.",
+  );
+}
+ok(`status list URL matches this origin (${expected})`);
+
+/* 5. The assets the field view loads are the real bytes, not a web page.
+      onnxruntime does not check content types: handed index.html it fails deep
+      inside a wasm parse, with an error naming neither the file nor the fact
+      that it was never there. */
+for (const path of ["/models/char-quality.onnx", "/ort/ort-wasm-simd-threaded.asyncify.wasm"]) {
+  const res = await fetch(`${base}${path}`, { signal: AbortSignal.timeout(60_000) });
+  if (!res.ok) fail(`${path} - HTTP ${res.status}`);
+  const ct = res.headers.get("content-type") ?? "";
+  if (ct.includes("html")) {
+    fail(`${path} served as ${ct} - it is missing from dist and the SPA fallback answered`);
+  }
+  ok(`${path} served as ${ct}`);
+}
+
+/* 6. A MISS under a machine path is a 404, not the SPA.
+      This is the half the asset check above cannot see: it only proves the
+      files we do emit are fine. The moment we stop emitting one, the fallback
+      hands ort an HTML page with a 200. Hem found /models/char-quality.json
+      doing exactly that on the deployed host. */
+for (const path of ["/models/__does-not-exist.onnx", "/ort/__does-not-exist.wasm", "/api/__nope"]) {
+  const res = await fetch(`${base}${path}`, { signal: AbortSignal.timeout(30_000) });
+  if (res.status !== 404) {
+    const ct = res.headers.get("content-type") ?? "";
+    fail(
+      `${path} returned HTTP ${res.status} (${ct}) instead of 404.\n` +
+        "      The SPA fallback is answering a machine path, so a missing asset\n" +
+        "      arrives as a web page with a success code.",
+    );
+  }
+}
+ok("missing assets 404 instead of falling through to the SPA");
+
+console.log(
+  "\nsmoke passed: mesh alive, skill reachable, revocation publicly checkable, assets real.",
+);

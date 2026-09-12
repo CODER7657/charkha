@@ -85,6 +85,11 @@ services:
       MATCHMAKER_URL: http://matchmaker:4002
       VERIFIER_URL: http://verifier:4003
       REGISTRY_URL: http://registry:4004
+      # Goes INSIDE the signature on every credential, as the status list URL
+      # a holder will fetch. Wrong here means credentials that name an address
+      # nobody outside this network can reach, and no way to correct them
+      # afterwards - see agents/registry/src/statusList.ts.
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:4000}
     depends_on:
       db: { condition: service_healthy }
       migrate: { condition: service_completed_successfully }
@@ -99,6 +104,8 @@ services:
       MATCHMAKER_URL: http://matchmaker:4002
       VERIFIER_URL: http://verifier:4003
       REGISTRY_URL: http://registry:4004
+      # The origin a browser and a credential holder actually reach us on.
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:4000}
     ports: ["4000:4000"]
     depends_on: [producer, matchmaker, verifier, registry]
     healthcheck:

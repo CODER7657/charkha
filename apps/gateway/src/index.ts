@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import Fastify from "fastify";
+import Fastify, { type FastifyReply } from "fastify";
 import fastifyStatic from "@fastify/static";
 import { loadEnv, AGENTS, callAgent, AgentRequestError } from "@charkha/a2a";
 import { readChain, verifyLedger } from "@charkha/db/ledger";
@@ -169,11 +169,71 @@ app.get("/api/trace/:taskId", async (req, reply) => {
 
 app.get("/api/verify-ledger", async () => verifyLedger());
 
+/* ------------------------------------------------------------------ *
+ * Public, unauthenticated, and deliberately NOT under /api.
+ *
+ * A credential names its status list by absolute URL, and the entire point of
+ * revocation is that a holder can check it without an account with us. Those
+ * URLs are minted by the registry, which resolved them against its own base -
+ * `http://registry:4004` in compose. That address exists only inside the
+ * Docker network: the VM publishes 80 and 443 only, and Caddy reverse-proxies
+ * to this gateway alone. So every credential issued on the deployed host named
+ * a status list no holder on earth could fetch.
+ *
+ * Unreachable would have been the good outcome. `/status/credits` had no route
+ * here, so it fell through to the SPA fallback below and answered **200 with
+ * index.html** - a client following the URL got a success code and an HTML
+ * document where a signed credential should be. Every naive check passes.
+ *
+ * These two paths must keep their exact spelling: they are baked into signed
+ * credentials that we cannot rewrite afterwards.
+ * ------------------------------------------------------------------ */
+const relayFromRegistry = async (path: string, reply: FastifyReply) => {
+  const res = await fetch(`${AGENTS.registry().baseUrl}${path}`);
+  const body = await res.text();
+  return reply
+    .code(res.status)
+    /* application/jwt, not application/json - the status list is a signed
+       compact JWT and a holder's verifier selects on this. */
+    .type(res.headers.get("content-type") ?? "application/json")
+    /* Revocation is the one thing that must never be answered from a cache:
+       a retired credit reading as live is the failure this list exists to
+       prevent. */
+    .header("cache-control", "no-store")
+    .send(body);
+};
+
+/** The issuer identifier every credential is signed against. */
+app.get("/did", async (_req, reply) => relayFromRegistry("/did", reply));
+
+/** The published Bitstring Status List. Read the bit your credential names. */
+app.get("/status/:listId", async (req, reply) => {
+  const { listId } = req.params as { listId: string };
+  return relayFromRegistry(`/status/${encodeURIComponent(listId)}`, reply);
+});
+
 /* ---- serve the built SPA from the same origin ---- */
 try {
   await app.register(fastifyStatic, { root: webDist, prefix: "/" });
+  /* The fallback exists so a deep link like /#audit reloads. It must never
+     answer for anything a machine fetches.
+
+     A miss under /models or /ort used to return 200 with index.html, and
+     onnxruntime does not check content types - it takes the bytes and fails
+     deep inside a wasm parse, with an error that names neither the file nor
+     the fact that it was never there. Hem hit exactly this: on the deployed
+     host /models/char-quality.json returns 410 bytes of HTML. Nothing reads
+     that sidecar today, which is the only reason it is not already breaking
+     the field view.
+
+     Same shape as /status/credits, which answered a credential request with
+     a web page. A 404 costs one line and turns both into the error they are. */
+  const MACHINE_PREFIXES = ["/api/", "/models/", "/ort/", "/status/", "/did"];
   app.setNotFoundHandler(async (req, reply) => {
-    if (req.url.startsWith("/api/")) return reply.code(404).send({ error: "not found" });
+    const path = req.url.split("?")[0] ?? "";
+    if (MACHINE_PREFIXES.some((p) => path === p.replace(/\/$/, "") || path.startsWith(p))) {
+      return reply.code(404).send({ error: "not found", path });
+    }
     return reply.sendFile("index.html");
   });
 } catch {

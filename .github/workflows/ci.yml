@@ -84,6 +84,10 @@ jobs:
     env:
       DATABASE_URL: postgres://charkha@localhost:5432/charkha
       A2A_JWT_SECRET: ci_only
+      # The origin smoke fetches the status list from. It also ends up inside
+      # every credential this job signs, and smoke asserts the two agree - so
+      # leaving it unset is itself the failure being tested for.
+      PUBLIC_BASE_URL: http://localhost:4000
 
     steps:
       - uses: actions/checkout@v4
@@ -113,6 +117,12 @@ jobs:
 
       - name: build web
         run: pnpm -F @charkha/web build
+
+      # The registry cannot sign a status list without a seed, and answers 503.
+      # Generated per run rather than written down: it is a signing key, and a
+      # fixed one in this file is a key in the repository.
+      - name: registry signing seed for this run
+        run: echo "REGISTRY_DID_SEED=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
 
       - name: agents boot
         run: |
@@ -197,19 +207,11 @@ jobs:
       - name: a skill is reachable through the deployed stack
         run: node scripts/smoke.mjs http://localhost:4000
 
-      - name: field view assets are served, not swallowed by the SPA fallback
-        run: |
-          set -e
-          # The gateway serves index.html for anything it does not recognise, so
-          # a missing asset becomes HTML and onnxruntime fails with a parse
-          # error that looks nothing like "file not found".
-          for path in /models/char-quality.onnx /ort/ort-wasm-simd-threaded.asyncify.wasm; do
-            ct=$(curl -sS -o /dev/null -w '%{content_type}' "http://localhost:4000$path")
-            echo "$path -> $ct"
-            case "$ct" in
-              text/html*) echo "::error::$path fell through to the SPA - the asset is missing from dist"; exit 1 ;;
-            esac
-          done
+      # The asset checks that used to live here as shell moved into
+      # scripts/smoke.mjs above, which now also asserts that a MISS under
+      # /models, /ort or /api returns 404 rather than the SPA's index.html -
+      # the half the old loop could not see, because it only ever asked about
+      # files we do emit.
 
       - name: logs on failure
         if: failure()
