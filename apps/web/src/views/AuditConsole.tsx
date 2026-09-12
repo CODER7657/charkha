@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { verifyChain, type ChainVerdict, type CreditRecord, type DecisionRecord, type TraceBundle } from "@charkha/core";
 import { api } from "../api.ts";
 import "./AuditConsole.css";
@@ -85,6 +85,12 @@ export const AuditConsole = () => {
   const [serverSaid, setServerSaid] = useState<boolean | null>(null);
   const [verdict, setVerdict] = useState<ChainVerdict | null>(null);
   const [tamperMode, setTamperMode] = useState(false);
+  /* A decision row can send its task id to the credential panel below.
+     Before this the panel was the only way in and the log showed no task id
+     at all - so the only thing to paste was a TRUNCATED hash copied off the
+     screen, which 404s. The counter forces a re-run when the same row is
+     pressed twice. */
+  const [seed, setSeed] = useState<{ taskId: string; n: number } | null>(null);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -222,6 +228,17 @@ export const AuditConsole = () => {
                       <span className="action">{rec.action}</span>
                     )}
                     {edited.has(rec.seq) ? <span className="edited">edited</span> : null}
+                    {/* The log never showed a task id, so the only thing a
+                        reader could paste into the panel below was a truncated
+                        hash - which 404s. This sends the full id. */}
+                    <button
+                      type="button"
+                      className="trace-row"
+                      title={`Trace ${rec.taskId}`}
+                      onClick={() => setSeed({ taskId: rec.taskId, n: Date.now() })}
+                    >
+                      trace
+                    </button>
                     <span className="confidence">
                       {tamperMode ? (
                         <input
@@ -255,10 +272,34 @@ export const AuditConsole = () => {
           </ul>
         </section>
 
-        <CredentialPanel />
+        <CredentialPanel seed={seed} />
       </div>
     </div>
   );
+};
+
+/**
+ * Why a trace lookup failed, in words a reader can act on.
+ *
+ * It used to render the raw failure - `/trace/f7654afa%E2%80%A6bc7 -> HTTP 404`
+ * - which names the symptom and none of the three real causes:
+ *
+ *  1. a truncated id copied off the screen. The decision log abbreviates every
+ *     hash, so the obvious thing to paste is exactly the thing that cannot work.
+ *  2. a task id from a READ. listLots and listUnits never call appendDecision,
+ *     so a Saathi hop shows a perfectly real task id that the ledger has never
+ *     heard of. Nothing said so.
+ *  3. a genuinely unknown id.
+ *
+ * The shape of the id tells us which, so say which.
+ */
+export const explainTraceFailure = (id: string, err: unknown): string => {
+  const raw = err instanceof Error ? err.message : String(err);
+  if (!/404/.test(raw)) return raw;
+  if (/[.…]{2,}|…/.test(id)) {
+    return "That looks like a shortened id copied off the screen. Press Trace on a decision row instead - it sends the full id.";
+  }
+  return "No decisions were recorded against that task id. Reads - listing lots, listing units, most Saathi answers - do not write to the ledger, so their task ids cannot be traced. Press Trace on a row in the decision log.";
 };
 
 /* ------------------------------------------------------------------ *
@@ -266,7 +307,8 @@ export const AuditConsole = () => {
  * signature against the issuer DID resolved in this browser.
  * ------------------------------------------------------------------ */
 
-const CredentialPanel = () => {
+const CredentialPanel = ({ seed }: { seed: { taskId: string; n: number } | null }) => {
+  const panelRef = useRef<HTMLElement | null>(null);
   const [taskId, setTaskId] = useState("");
   const [trace, setTrace] = useState<TraceBundle | null>(null);
   const [err, setErr] = useState("");
@@ -285,20 +327,34 @@ const CredentialPanel = () => {
     }
   }, [credit]);
 
-  const lookup = async () => {
+  const lookup = useCallback(async (explicit?: string) => {
+    const id = (explicit ?? taskId).trim();
+    if (!id) return;
     setBusy(true);
     setErr("");
     setCheck({ state: "idle" });
     setListCheck({ state: "idle" });
     try {
-      setTrace((await api.trace(taskId.trim())) as TraceBundle);
+      setTrace((await api.trace(id)) as TraceBundle);
     } catch (e) {
       setTrace(null);
-      setErr(e instanceof Error ? e.message : String(e));
+      setErr(explainTraceFailure(id, e));
     } finally {
       setBusy(false);
     }
-  };
+  }, [taskId]);
+
+  /* A Trace button on a decision row seeds this panel. Re-runs on the counter
+     so pressing the same row twice works. */
+  useEffect(() => {
+    if (!seed) return;
+    setTaskId(seed.taskId);
+    void lookup(seed.taskId);
+    panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    /* Deliberately only `seed`. `lookup` is recreated on every keystroke in
+       the box, so depending on it would re-run the trace while someone is
+       still typing - and `seed` carries its own counter for repeats. */
+  }, [seed]);
 
   /* Really verifies: resolve the issuer's did:key locally, check the
      signature over the JWT. Nothing here trusts our own database. */
@@ -412,7 +468,7 @@ const CredentialPanel = () => {
     ?.credentialStatus;
 
   return (
-    <section className="card">
+    <section className="card" ref={panelRef}>
       <header>
         <h2>Credential</h2>
         {credit ? <span className={`pill ${credit.status}`}>{credit.status}</span> : null}

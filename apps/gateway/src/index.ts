@@ -74,6 +74,18 @@ app.post("/api/match", async (req) => {
   const body = (req.body ?? {}) as { district?: string; maxRadiusKm?: number };
   return callAgent(AGENTS.matchmaker(), "runMatching", { maxRadiusKm: 60, ...body }, { callerName: "gateway" });
 });
+/* The picker behind Field capture's match selector. Read-only, same shape as
+   /api/lots and /api/units - the Field view cannot ask a farmer to type an id
+   it has no way of showing them. */
+app.get("/api/matches", async (req) => {
+  const q = req.query as { awaitingEvidence?: string };
+  return callAgent(
+    AGENTS.matchmaker(),
+    "listMatches",
+    { awaitingEvidence: q.awaitingEvidence !== "false", limit: 25 },
+    { callerName: "gateway" },
+  );
+});
 app.get("/api/units", async (req) => {
   const q = req.query as { feedstock?: string };
   return callAgent(AGENTS.matchmaker(), "listUnits", { ...q, limit: 200 }, { callerName: "gateway" });

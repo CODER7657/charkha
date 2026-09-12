@@ -540,3 +540,74 @@
   font-size: 11.5px;
   margin-top: 3px;
 }
+
+/* ---- Which batch is this? ----------------------------------------
+   The match picker. Field capture asked for a matchId and gave no way to
+   obtain one; this is the way. Buttons rather than a <select> because a
+   thumb in a field needs a target, not a dropdown, and because each row
+   carries two lines of text that a select cannot show.
+   ------------------------------------------------------------------ */
+.field .fc-wide {
+  grid-column: 1 / -1;
+}
+
+.field .fc-picks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 6px 0 8px;
+  /* Four rows visible, the rest scrolls. A list that pushes the Submit
+     button off a phone screen is worse than one that scrolls. */
+  max-height: 232px;
+  overflow-y: auto;
+}
+
+.field .fc-pick {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  /* 48px is the thumb target; text sets the real height and this is a floor. */
+  min-height: 48px;
+  padding: 8px 12px;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.field .fc-pick b {
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.field .fc-pick span {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Selected state carries a left bar and a border, not hue alone - the
+   same rule the operator map follows, for the same projector. */
+.field .fc-pick.on {
+  border-color: var(--accent);
+  box-shadow: inset 3px 0 0 var(--accent);
+  background: var(--soot);
+}
+
+.field .fc-pick:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.field .fc-matchid {
+  font-size: 13px;
+}
+
+/* "Sent. Take a new photo" is a SUCCESS, not a failure. It sat in fc-error
+   for a while, which put red text beside a green Accepted panel. */
+.field .fc-spent {
+  font-size: 14px;
+  color: var(--seq);
+}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { FeedstockClass, FieldEvidence, VerifyEvidenceOutput } from "@charkha/core";
+import type { FeedstockClass, FieldEvidence, MatchSummary, VerifyEvidenceOutput } from "@charkha/core";
 import { api } from "../api.ts";
 import { LANGUAGES, detectLang, rememberLang, translator, type Lang } from "../i18n.ts";
 import { CLASSES, canaryTensor, topClass } from "../../../../agents/verifier/src/protocol.ts";
@@ -61,6 +61,28 @@ export const FieldCapture = () => {
      not working for the people it is for. */
   const [lang, setLang] = useState<Lang>(detectLang);
   const t = useMemo(() => translator(lang), [lang]);
+
+  /* Loaded once, not polled: a farmer picks a batch and gets on with it, and
+     a list that reshuffles under a thumb is worse than a stale one. */
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/matches", { headers: { "content-type": "application/json" } });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const body = (await res.json()) as { output?: { matches?: MatchSummary[] } };
+        if (!cancelled) setChoices(body.output?.matches ?? []);
+      } catch (e) {
+        /* Offline is the normal case in a field, and the typed id still works.
+           Say why the picker is missing rather than rendering an empty list
+           that reads as "there are no batches". */
+        if (!cancelled) setChoicesErr(e instanceof Error ? e.message : String(e));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [model, setModel] = useState<FieldModel | null>(null);
   const [modelErr, setModelErr] = useState("");
   const [gpuNote, setGpuNote] = useState("");
@@ -68,6 +90,15 @@ export const FieldCapture = () => {
   const [photo, setPhoto] = useState<Photo | null>(null);
   const [photoErr, setPhotoErr] = useState("");
   const [matchId, setMatchId] = useState(() => safeStorage().getItem("charkha.field.matchId") ?? "");
+  /* The batches this phone could be standing in front of.
+     Field capture used to ask for a matchId and offer no way to get one: a
+     free-text box with a `match_...` placeholder. The only place a real id
+     ever appeared was the Operator result panel, and that is empty once a
+     round has spent the day's capacity - so on any day but the first, there
+     was no route from "I have a char pile" to the id this form demands. */
+  const [choices, setChoices] = useState<MatchSummary[] | null>(null);
+  const [choicesErr, setChoicesErr] = useState("");
+
   const [batch, setBatch] = useState<BatchForm>({
     pyrolysisPeakTempC: "",
     residenceTimeMin: "",
@@ -358,9 +389,49 @@ export const FieldCapture = () => {
       <section className="fc-card">
         <h2>2 · Batch</h2>
         <div className="fc-grid">
-          <label>
-            {t("Match ID")}
-            <input value={matchId} onChange={(e) => setMatchId(e.target.value)} placeholder="match_…" autoCapitalize="off" />
+          <label className="fc-wide">
+            {t("Which batch is this?")}
+            {/* Pick, do not type. Nobody recognises a batch by its id - they
+                recognise the unit and the district, which is what this shows.
+                The text box stays underneath for a typed or remembered id. */}
+            {choices === null && !choicesErr ? (
+              <span className="fc-hint">{t("Loading your batches")}</span>
+            ) : choicesErr ? (
+              <span className="fc-hint">{t("Could not load batches - type the ID below")}</span>
+            ) : (choices?.length ?? 0) === 0 ? (
+              <span className="fc-hint">{t("No batches are waiting for a photo")}</span>
+            ) : (
+              <div className="fc-picks">
+                {(choices ?? []).map((m) => (
+                  <button
+                    type="button"
+                    key={m.matchId}
+                    className={m.matchId === matchId ? "fc-pick on" : "fc-pick"}
+                    aria-pressed={m.matchId === matchId}
+                    onClick={() => {
+                      setMatchId(m.matchId);
+                      /* The lot already knows its feedstock, and a mismatch is
+                         refused by the methodology check - so fill it in
+                         rather than letting someone guess it wrong. */
+                      setBatch((b) => ({ ...b, feedstock: m.feedstock }));
+                    }}
+                  >
+                    <b>{m.unitName}</b>
+                    <span>
+                      {m.district ?? t("district unknown")} · {m.assignedTonnes.toFixed(1)} t · {t(m.feedstock)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <input
+              className="fc-matchid"
+              value={matchId}
+              onChange={(e) => setMatchId(e.target.value)}
+              placeholder={t("or paste a match ID")}
+              autoCapitalize="off"
+              aria-label={t("Match ID")}
+            />
           </label>
           <label>
             {t("Feedstock")}
@@ -422,8 +493,12 @@ export const FieldCapture = () => {
             {t("Submit")}
           </button>
           {!draft.body ? <span className="muted">{draft.error}</span> : null}
+          {/* Not an error, and it used to be styled as one - red text beside a
+              green "Accepted" panel, which reads as a failure at the exact
+              moment the thing succeeded. It is the one-photo-one-credit rule
+              doing its job, and it needs to say what to do next. */}
           {photoSpent ? (
-            <span className="fc-error">{t("This photo has already been sent. Take a new one.")}</span>
+            <span className="fc-spent">{t("Sent. Take a new photo for the next batch.")}</span>
           ) : null}
         </div>
 

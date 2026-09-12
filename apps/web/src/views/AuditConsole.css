@@ -365,3 +365,26 @@
   color: var(--ink);
   border-color: var(--accent);
 }
+
+/* Trace-this-row. The decision log never displayed a task id, so the only
+   thing a reader could paste into the credential panel was a truncated hash,
+   which 404s - that is the /trace/f7654afa%E2%80%A6bc7 in the bug report.
+   This sends the full id and needs no copying at all. */
+.audit .trace-row {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  margin-left: 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.audit .trace-row:hover,
+.audit .trace-row:focus-visible {
+  color: var(--ink);
+  border-color: var(--accent);
+}
