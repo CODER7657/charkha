@@ -70,24 +70,42 @@ const statusRes = await fetch(`${base}/status/credits`, { signal: AbortSignal.ti
 if (!statusRes.ok) fail(`/status/credits - HTTP ${statusRes.status}`);
 
 const jwt = (await statusRes.text()).trim();
-const parts = jwt.split(".");
-if (parts.length !== 3) {
+const ctype = statusRes.headers.get("content-type") ?? "";
+
+/* Say what actually happened. An HTML body splits on "." into whatever number
+   of pieces its asset paths happen to produce - the deployed page gave exactly
+   three - so a segment count alone reports this as a base64 problem and sends
+   whoever is reading to the wrong place. */
+if (ctype.includes("html") || jwt.startsWith("<")) {
   fail(
-    `/status/credits did not return a compact JWT (got ${parts.length} segment(s), ` +
-      `content-type ${statusRes.headers.get("content-type")}).\n` +
-      `      First bytes: ${jwt.slice(0, 120)}\n` +
-      "      If that looks like HTML, the gateway has no route for this path and the\n" +
-      "      SPA fallback answered instead - see apps/gateway/src/index.ts.",
+    `/status/credits returned a web page, not a credential (content-type ${ctype}).\n` +
+      `      First bytes: ${jwt.slice(0, 80)}\n` +
+      "      The gateway has no route for this path, so the SPA fallback answered\n" +
+      "      with index.html and HTTP 200 - see apps/gateway/src/index.ts.",
   );
 }
 
-let subject;
-try {
-  const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
-  subject = (payload.vc ?? payload).credentialSubject ?? {};
-} catch (err) {
-  fail(`/status/credits payload did not decode as JSON: ${err.message}`);
+const parts = jwt.split(".");
+if (parts.length !== 3) {
+  fail(`/status/credits is not a compact JWT: ${parts.length} segment(s), content-type ${ctype}`);
 }
+
+const decode = (seg, what) => {
+  try {
+    return JSON.parse(Buffer.from(seg, "base64url").toString("utf8"));
+  } catch {
+    return fail(
+      `/status/credits ${what} segment is not base64url JSON (content-type ${ctype}).\n` +
+        `      First bytes of the body: ${jwt.slice(0, 80)}`,
+    );
+  }
+};
+
+const header = decode(parts[0], "header");
+if (!header.alg) fail("/status/credits header carries no alg - it is not a signed credential");
+
+const payload = decode(parts[1], "payload");
+const subject = (payload.vc ?? payload).credentialSubject ?? {};
 if (!subject.encodedList) fail("/status/credits carries no encodedList - it is not a status list");
 ok(`status list published and signed (purpose ${subject.statusPurpose ?? "?"})`);
 
