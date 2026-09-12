@@ -11,6 +11,46 @@
 {$CHARKHA_HOSTNAME} {
 	encode gzip
 
+	header {
+		# We were serving no security headers at all. Every one below is here
+		# because something in this app actually needs it, not for a scanner.
+
+		# The field view takes camera input over HTTPS. A downgrade to plain
+		# HTTP does not merely weaken it - capture silently stops working -
+		# so pin the browser to HTTPS for this host.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+		# The gateway serves a 25 MB .wasm and an .onnx as
+		# application/octet-stream. Sniffing either into something executable
+		# is exactly the mistake to prevent.
+		X-Content-Type-Options "nosniff"
+
+		# Nothing here is meant to be embedded. A framed Audit console is a
+		# credible-looking way to show someone a ledger that is not ours.
+		X-Frame-Options "DENY"
+
+		Referrer-Policy "strict-origin-when-cross-origin"
+
+		# Camera yes - that is the field view. Everything else off: we have no
+		# use for a microphone or a payment handler, and saying so is cheaper
+		# than explaining why we asked.
+		Permissions-Policy "camera=(self), microphone=(), geolocation=(self), payment=()"
+
+		# Content-Security-Policy, narrowed to what this app genuinely uses:
+		#   wasm-unsafe-eval  onnxruntime-web compiles its runtime
+		#   blob:             ort worker threads, and the local preview of a
+		#                     photo that never leaves the device
+		#   tile.openstreetmap.org  the only third party we load anything from,
+		#                     and only map tiles
+		#   unsafe-inline (style) Leaflet injects inline styles for markers
+		# connect-src is 'self' alone: no telemetry, no CDN, no analytics, and
+		# the browser now enforces that rather than us asserting it.
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.tile.openstreetmap.org; font-src 'self'; connect-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+
+		# Do not advertise the server we run.
+		-Server
+	}
+
 	# Agents and the gateway are never exposed directly - an open gateway is an
 	# unauthenticated write endpoint. Only 80 and 443 are open on the VM.
 	reverse_proxy gateway:4000
