@@ -70,7 +70,24 @@ const rowFor = async (lotId: string) =>
 
 describe.skipIf(!canRun)("declareWaste against a real database", () => {
   beforeEach(async () => {
-    await db().delete(schema.residueLots);
+    /* burn_detections too, not just the lots.
+    
+       Ingest dedupes against burn_detections, NOT against residue_lots - that
+       is the whole point of keeping detections separately, so a re-run creates
+       nothing the second time. Clearing only the lots left every detection
+       still "already seen", so `ingestBurns` produced zero lots and the
+       both-paths test below failed with "expected 1 to be greater than 1" -
+       a message that reads like declared and detected got confused, when
+       nothing of the sort happened.
+    
+       It passed in CI because CI starts from an empty database, so the 20
+       fixture rows were new there. It failed for anyone who had ever run
+       ingest locally, which is everyone who has used this repo. A test whose
+       result depends on how much history the developer's database happens to
+       carry is not testing what it says it tests. */
+    const d = db();
+    await d.delete(schema.residueLots);
+    await d.delete(schema.burnDetections);
   });
 
   /* THE HAPPY PATH, exactly as the issue states it: a municipality declares
