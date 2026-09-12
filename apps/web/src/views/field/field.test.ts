@@ -3,6 +3,7 @@ import { FieldEvidence, type VerifyEvidenceOutput } from "@charkha/core";
 import { CANARY_PREFIX, CLASSES } from "../../../../../agents/verifier/src/protocol.ts";
 import { buildEvidence, type BatchForm, type Scored } from "./evidence.ts";
 import { EvidenceQueue, MAX_ATTEMPTS, isRetryable } from "./queue.ts";
+import { lotFeedstockFromVerdict, recallLotFeedstock, rememberLotFeedstock } from "./feedstock.ts";
 
 const scored: Scored = {
   imageHash: "b".repeat(64),
@@ -211,5 +212,75 @@ describe("offline queue", () => {
     [new Error("/evidence -> HTTP 422"), false],
   ])("isRetryable(%s) = %s", (err, expected) => {
     expect(isRetryable(err)).toBe(expected);
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * The feedstock trap: the operator picks blind, and only finds out after a
+ * photo and a full inference run. The verdict carries the lot's value, so the
+ * view can offer to resend with it instead of leaving a dead end on stage.
+ * ------------------------------------------------------------------ */
+
+const verdictWith = (check: { check: string; passed: boolean; detail: string }): VerifyEvidenceOutput =>
+  ({
+    evidenceId: "ev_1",
+    verdict: "rejected",
+    charQualityScore: 0.9,
+    predictedClass: "good_char",
+    confidence: 0.9,
+    modelHash: "a".repeat(64),
+    modelVersion: "0.1.0-baseline",
+    reasons: ["methodology failed: feedstock_matches_lot"],
+    methodologyChecks: [check],
+  }) as VerifyEvidenceOutput;
+
+describe("recovering from a feedstock mismatch", () => {
+  it("reads the lot's feedstock out of the failed check", () => {
+    const out = verdictWith({ check: "feedstock_matches_lot", passed: false, detail: "batch paddy_straw, lot mixed" });
+    expect(lotFeedstockFromVerdict(out)).toBe("mixed");
+  });
+
+  it("reads it for every feedstock the contract allows", () => {
+    for (const f of ["paddy_straw", "wheat_straw", "sugarcane_trash", "maize_stover", "mixed"]) {
+      const out = verdictWith({ check: "feedstock_matches_lot", passed: false, detail: `batch mixed, lot ${f}` });
+      expect(lotFeedstockFromVerdict(out)).toBe(f);
+    }
+  });
+
+  it("offers nothing when the check passed - there is no mismatch to fix", () => {
+    const out = verdictWith({ check: "feedstock_matches_lot", passed: true, detail: "batch mixed, lot mixed" });
+    expect(lotFeedstockFromVerdict(out)).toBeNull();
+  });
+
+  it("offers nothing when the verdict failed on something else", () => {
+    const out = verdictWith({ check: "residence_time", passed: false, detail: "10 min, minimum 30 min" });
+    expect(lotFeedstockFromVerdict(out)).toBeNull();
+  });
+
+  it("refuses a value that is not a feedstock, rather than sending junk back", () => {
+    const out = verdictWith({ check: "feedstock_matches_lot", passed: false, detail: "batch mixed, lot banana" });
+    expect(lotFeedstockFromVerdict(out)).toBeNull();
+  });
+
+  it("remembers what a lot said, per match id", () => {
+    const store = memory();
+    rememberLotFeedstock(store, "match_a", "mixed");
+    rememberLotFeedstock(store, "match_b", "wheat_straw");
+    expect(recallLotFeedstock(store, "match_a")).toBe("mixed");
+    expect(recallLotFeedstock(store, "match_b")).toBe("wheat_straw");
+    expect(recallLotFeedstock(store, "match_never_seen")).toBeNull();
+  });
+
+  it("survives storage being unavailable, as in a private window", () => {
+    const broken = {
+      getItem: () => {
+        throw new Error("SecurityError");
+      },
+      setItem: () => {
+        throw new Error("SecurityError");
+      },
+    };
+    expect(() => rememberLotFeedstock(broken, "match_a", "mixed")).not.toThrow();
+    expect(recallLotFeedstock(broken, "match_a")).toBeNull();
   });
 });
