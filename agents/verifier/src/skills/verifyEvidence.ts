@@ -99,6 +99,30 @@ export class MalformedEvidenceError extends Error {
   }
 }
 
+/**
+ * One photograph, one piece of evidence.
+ *
+ * The same pile, photographed once and submitted against five matches, used
+ * to produce five credits. Nothing in the chain noticed: each submission had
+ * its own evidenceId, its own match, and a canary that attested perfectly -
+ * because the canary is seeded from the imageHash and so agrees just as well
+ * on the fifth submission as the first.
+ *
+ * The refusal names the earlier evidence, because the honest case for hitting
+ * this is a field worker who retried under a new id, and they need to be told
+ * which submission already counted rather than just "no".
+ */
+export class DuplicatePhotoError extends Error {
+  constructor(readonly prior: { evidenceId: string; matchId: string } | null) {
+    super(
+      prior
+        ? `this photo was already submitted as evidence ${prior.evidenceId} for match ${prior.matchId} - refusing to credit the same image twice`
+        : "this photo has already been submitted as evidence - refusing to credit the same image twice",
+    );
+    this.name = "DuplicatePhotoError";
+  }
+}
+
 const inRange = (n: number, [lo, hi]: readonly [number, number]) => Number.isFinite(n) && n >= lo && n <= hi;
 
 /** Everything that must hold before a payload is allowed near the ONNX session. */
@@ -219,7 +243,13 @@ export type VerifierDeps = {
   agentCardId: string;
   findMatch: (matchId: string) => Promise<MatchFacts | null>;
   findPrior: (evidenceId: string) => Promise<PriorEvidence | null>;
-  /** Insert the evidence row. false if another request claimed it first. */
+  /** The evidence that already used this photo, if any. */
+  findByImageHash: (imageHash: string) => Promise<{ evidenceId: string; matchId: string } | null>;
+  /**
+   * Insert the evidence row. false if another request claimed the same
+   * evidenceId first. Throws DuplicatePhotoError if the photo belongs to a
+   * different evidence row - that is a refusal, not a lost race.
+   */
   claimEvidence: (evidence: FieldEvidence, taskId: string) => Promise<boolean>;
   appendDecision: (args: Parameters<typeof appendDecision>[0]) => Promise<unknown>;
   saveVerification: (output: VerifyEvidenceOutput, taskId: string) => Promise<void>;
@@ -283,8 +313,22 @@ const verifyOnce = async (
     }
     // Claimed but never finished. We hold the lock, so nobody else is
     // verifying it: the earlier attempt crashed mid-verify. Finish it now.
-  } else if (!(await deps.claimEvidence(input, ctx.taskId))) {
-    throw new Error(`evidenceId ${input.evidenceId} is being verified by another verifier process - retry shortly`);
+  } else {
+    // 2b. A retry of the same evidenceId is handled above and never reaches
+    //     here. Anything that does is a second claim on a photo we have
+    //     already seen, under a new id - refuse it before inference, before
+    //     the ledger, and before anything downstream can issue on it.
+    //
+    //     The mutex is keyed on evidenceId, so two different ids carrying the
+    //     same photo do not serialise against each other and can both pass
+    //     this read. The unique index is what actually holds; claimEvidence
+    //     turns that race loss back into this same refusal.
+    const seen = await deps.findByImageHash(input.imageHash);
+    if (seen && seen.evidenceId !== input.evidenceId) throw new DuplicatePhotoError(seen);
+
+    if (!(await deps.claimEvidence(input, ctx.taskId))) {
+      throw new Error(`evidenceId ${input.evidenceId} is being verified by another verifier process - retry shortly`);
+    }
   }
 
   const reasons: string[] = [];

@@ -65,6 +65,7 @@ describe.skipIf(!canRun)("verifier against a real database and model", () => {
       agentCardId: "http://localhost:4003/.well-known/agent-card.json",
       findMatch: store.findMatch,
       findPrior: store.findPrior,
+      findByImageHash: store.findByImageHash,
       claimEvidence: store.claimEvidence,
       appendDecision: ledger.appendDecision,
       saveVerification: store.saveVerification,
@@ -81,15 +82,24 @@ describe.skipIf(!canRun)("verifier against a real database and model", () => {
   let n = 0;
   const ctx = () => ({ taskId: `task_it_${++n}`, contextId: "ctx", progress: () => {} });
 
-  /** Evidence as the browser would build it: canary scored by the same model. */
+  /**
+   * Evidence as the browser would build it: canary scored by the same model.
+   *
+   * Each call is a DIFFERENT photograph. It used to derive the hash from the
+   * task counter while randomising the evidence id, so two calls could hand
+   * back the same photo under two ids - which is now the one thing the
+   * verifier refuses outright. Tests that mean "the same submission, twice"
+   * say so by re-sending one fixture object, not by calling this again.
+   */
+  let photos = 0;
   const evidence = async (over: Partial<FieldEvidence> = {}): Promise<FieldEvidence> => {
-    const imageHash = (over.imageHash ?? `${n}`.padStart(64, "e")).toLowerCase();
+    const imageHash = (over.imageHash ?? `${++photos}`.padStart(64, "e")).toLowerCase();
     const canary = await model.run(canaryTensor(imageHash));
     const clientScores: Record<string, number> = {};
     for (const c of CLASSES) clientScores[`${CANARY_PREFIX}${c}`] = canary[c];
     Object.assign(clientScores, { good_char: 0.92, poor_char: 0.06, not_char: 0.02 });
     return {
-      evidenceId: `ev_it_${n}_${Math.random().toString(36).slice(2, 8)}`,
+      evidenceId: `ev_it_${photos}_${Math.random().toString(36).slice(2, 8)}`,
       matchId: "match_it",
       at: { lat: 30.9, lon: 75.85 },
       capturedAt: new Date(Date.now() - 60_000).toISOString(),
@@ -165,6 +175,7 @@ describe.skipIf(!canRun)("verifier against a real database and model", () => {
       agentCardId: "it",
       findMatch: store.findMatch,
       findPrior: store.findPrior,
+      findByImageHash: store.findByImageHash,
       claimEvidence: store.claimEvidence,
       appendDecision: ledger.appendDecision,
       saveVerification: store.saveVerification,
@@ -187,6 +198,24 @@ describe.skipIf(!canRun)("verifier against a real database and model", () => {
     );
     expect(out.verdict).toBe("needs_review");
     expect((await store.findPrior(e.evidenceId))?.verification?.verdict).toBe("needs_review");
+  });
+
+  /* The whole point, end to end against the real database: one photograph of
+     one pile, submitted under a second id. Every other guard passes it - new
+     id, valid match, and a canary that attests perfectly, because the canary
+     is seeded from this very hash. Only the unique index says no. */
+  it("refuses the same photograph submitted under a second evidence id", async () => {
+    const first = await evidence();
+    await verify(first, ctx());
+    const before = { log: await count("decision_log"), ev: await count("evidence") };
+
+    const second = await evidence({ imageHash: first.imageHash });
+    expect(second.evidenceId).not.toBe(first.evidenceId);
+
+    await expect(verify(second, ctx())).rejects.toThrow(/refusing to credit the same image twice/);
+    expect(await count("decision_log")).toBe(before.log);
+    expect(await count("evidence")).toBe(before.ev);
+    expect(await store.findPrior(second.evidenceId)).toBeNull();
   });
 
   it("evidence against an unknown match is rejected", async () => {

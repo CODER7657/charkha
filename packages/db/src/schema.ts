@@ -67,18 +67,39 @@ export const matches = pgTable(
   (t) => [index("match_lot_idx").on(t.lotId)],
 );
 
-export const evidence = pgTable("evidence", {
-  evidenceId: text("evidence_id").primaryKey(),
-  matchId: text("match_id").notNull(),
-  lat: doublePrecision("lat").notNull(),
-  lon: doublePrecision("lon").notNull(),
-  capturedAt: timestamp("captured_at", { withTimezone: true }).notNull(),
-  imageHash: text("image_hash").notNull(),
-  modelHash: text("model_hash").notNull(),
-  modelVersion: text("model_version").notNull(),
-  clientScores: jsonb("client_scores").$type<Record<string, number>>().notNull(),
-  batch: jsonb("batch").$type<Record<string, unknown>>().notNull(),
-});
+export const evidence = pgTable(
+  "evidence",
+  {
+    evidenceId: text("evidence_id").primaryKey(),
+    matchId: text("match_id").notNull(),
+    lat: doublePrecision("lat").notNull(),
+    lon: doublePrecision("lon").notNull(),
+    capturedAt: timestamp("captured_at", { withTimezone: true }).notNull(),
+    imageHash: text("image_hash").notNull(),
+    modelHash: text("model_hash").notNull(),
+    modelVersion: text("model_version").notNull(),
+    clientScores: jsonb("client_scores").$type<Record<string, number>>().notNull(),
+    batch: jsonb("batch").$type<Record<string, unknown>>().notNull(),
+  },
+  (t) => [
+    /* One photograph backs at most one piece of evidence, ever.
+    
+       Without this, a single photograph of one char pile can be submitted
+       against any number of matches, and every one of them issues its own
+       credit. That is double counting - the exact failure a carbon registry
+       exists to prevent, and the first thing an auditor tries.
+    
+       `credit_evidence_uq` already stops one *evidence row* being credited
+       twice. It does not stop one *photo* becoming many evidence rows, which
+       is the cheaper attack and the one that needs no access to our systems.
+    
+       The verifier refuses this with a readable message before it ever gets
+       here. That check reads and then inserts, so it cannot hold when two
+       submissions are in flight at once: the database is the only place the
+       guarantee can actually live. */
+    uniqueIndex("evidence_image_hash_uq").on(t.imageHash),
+  ],
+);
 
 export const verifications = pgTable("verifications", {
   evidenceId: text("evidence_id").primaryKey(),

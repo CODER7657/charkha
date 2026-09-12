@@ -3,7 +3,7 @@ import { VerifyEvidenceInput } from "@charkha/core";
 import { appendDecision } from "@charkha/db/ledger";
 import { makeVerifyEvidence } from "./skills/verifyEvidence.ts";
 import { getModel, loadModel } from "./onnx.ts";
-import { claimEvidence, findMatch, findPrior, saveVerification } from "./store.ts";
+import { claimEvidence, findByImageHash, findMatch, findPrior, saveVerification } from "./store.ts";
 
 loadEnv();
 
@@ -26,6 +26,7 @@ const verifyEvidence = makeVerifyEvidence({
   agentCardId: `${BASE_URL}/.well-known/agent-card.json`,
   findMatch,
   findPrior,
+  findByImageHash,
   claimEvidence,
   appendDecision,
   saveVerification,

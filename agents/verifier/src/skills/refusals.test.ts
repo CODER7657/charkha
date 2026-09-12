@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { isCallerError } from "@charkha/a2a";
-import { MalformedEvidenceError } from "./verifyEvidence.ts";
+import { DuplicatePhotoError, MalformedEvidenceError } from "./verifyEvidence.ts";
 
 /* ------------------------------------------------------------------ *
  * The verifier's refusals, held to the same rule as the registry's.
@@ -48,6 +48,19 @@ describe("every verifier refusal classifies as a caller error", () => {
     expect(
       isCallerError("evidenceId evi_1 is being verified by another verifier process - retry shortly"),
     ).toBe(true);
+  });
+
+  /* Re-using one photograph across matches is the caller trying to be paid
+     twice. Refused, and refused as a 400 - a 500 would read as our outage and
+     invite a retry of exactly the thing we mean to stop. */
+  it("the same photo submitted under a second evidence id", () => {
+    expect(
+      isCallerError(new DuplicatePhotoError({ evidenceId: "evi_1", matchId: "match_1" }).message),
+    ).toBe(true);
+  });
+
+  it("the same photo, when the earlier submission cannot be named", () => {
+    expect(isCallerError(new DuplicatePhotoError(null).message)).toBe(true);
   });
 
   it("schema rejection from the A2A wrapper", () => {
