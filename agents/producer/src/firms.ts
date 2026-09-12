@@ -349,6 +349,15 @@ export const toLot = (d: BurnDetection): ResidueLot => {
     availableFrom: d.acquiredAt,
     sourceDetectionId: d.detectionId,
     status: "listed",
+    /* Said out loud, not left to a default.
+    
+       `origin` is optional on the contract and defaults to 'detected' in the
+       column, so omitting it here would still store the right word - by
+       accident. The declare path writes 'declared' explicitly, and the two
+       paths must be readable side by side: absent-means-detected is the kind
+       of implicit agreement that survives right up until somebody adds a
+       third origin. */
+    origin: "detected",
   };
 };
 

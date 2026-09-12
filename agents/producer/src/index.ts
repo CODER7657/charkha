@@ -1,8 +1,9 @@
 import { loadEnv, buildAgentCard, startAgentServer } from "@charkha/a2a";
-import { ListLotsInput, IngestBurnsInput } from "@charkha/core";
+import { ListLotsInput, IngestBurnsInput, DeclareWasteInput } from "@charkha/core";
 import { AGENT_NAME, AGENT_VERSION } from "./card.ts";
 import { ingestBurns } from "./skills/ingestBurns.ts";
 import { listLots } from "./skills/listLots.ts";
+import { declareWaste } from "./skills/declareWaste.ts";
 
 loadEnv();
 
@@ -16,6 +17,12 @@ const card = buildAgentCard({
   skills: [
     { id: "ingestBurns", name: "Ingest burn detections", description: "Pull near-real-time fire detections and turn them into residue lots.", tags: ["ingest", "satellite"] },
     { id: "listLots", name: "List residue lots", description: "Return residue lots, optionally filtered by district and status.", tags: ["query"] },
+    /* The second supply path. FIRMS finds waste that is burning, so a
+       municipality's landfilled organic waste and a factory's skip are
+       invisible to it - declaration is how those generators enter at all.
+       The card says "declared" out loud because the card is what an auditor
+       fetches to see what this agent claims it can do. */
+    { id: "declareWaste", name: "Declare waste", description: "Record waste declared by a municipality, ward or industrial generator as a residue lot, marked as declared rather than satellite-detected.", tags: ["declare", "municipal", "industrial"] },
   ],
 });
 
@@ -25,5 +32,6 @@ await startAgentServer({
   skills: {
     ingestBurns: { input: IngestBurnsInput, run: ingestBurns },
     listLots: { input: ListLotsInput, run: listLots },
+    declareWaste: { input: DeclareWasteInput, run: declareWaste },
   },
 });

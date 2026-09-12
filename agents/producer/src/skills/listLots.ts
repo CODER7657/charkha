@@ -37,6 +37,15 @@ export const listLots = async (
     availableFrom: r.availableFrom.toISOString(),
     sourceDetectionId: r.sourceDetectionId,
     status: r.status as ResidueLot["status"],
+    /* Carried out of the query deliberately.
+    
+       Detected and declared lots are different evidence - one is a thermal
+       anomaly NASA saw whether or not anyone wanted it seen, the other a
+       claim by somebody who stands to be paid for it. A reader that cannot
+       tell them apart is exactly the blur this column exists to prevent, and
+       dropping the field here would have made the distinction invisible
+       everywhere downstream of the producer. */
+    origin: r.origin as ResidueLot["origin"],
   }));
 
   return { lots };

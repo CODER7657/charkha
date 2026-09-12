@@ -87,6 +87,9 @@ export const ingestBurns = async (
           availableFrom: new Date(l.availableFrom),
           sourceDetectionId: l.sourceDetectionId,
           status: l.status,
+          // From the lot the plan built, never a literal here: a detected lot
+          // must be marked detected by the same code that decided it was one.
+          origin: l.origin ?? "detected",
         })),
       )
       .onConflictDoNothing()
