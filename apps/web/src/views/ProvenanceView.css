@@ -31,7 +31,7 @@
 .pv-card > header .muted {
   margin-left: auto;
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -100,13 +100,13 @@
    washed-out projector both need the label. */
 .pv-pill {
   font-family: var(--mono);
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   padding: 3px 7px;
   border-radius: 2px;
   flex: none;
-  min-width: 66px;
+  min-width: 78px;
   text-align: center;
   border: 1px solid transparent;
 }
@@ -173,7 +173,7 @@
 }
 .pv-factors dt span {
   font-family: var(--mono);
-  font-size: 9px;
+  font-size: 11px;
   color: var(--faint);
   line-height: 1.3;
 }
@@ -213,7 +213,7 @@
 }
 .pv-kv dt {
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: 11px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--faint);
