@@ -17,5 +17,6 @@ export const api = {
   issue: (body: unknown) => req<unknown>("/credits/issue", { method: "POST", body: JSON.stringify(body) }),
   retire: (body: unknown) => req<unknown>("/credits/retire", { method: "POST", body: JSON.stringify(body) }),
   ledger: () => req<{ chain: unknown[]; verdict: { valid: boolean } }>("/ledger"),
+  provenance: () => req<unknown>("/provenance"),
   trace: (taskId: string) => req<unknown>(`/trace/${encodeURIComponent(taskId)}`),
 };

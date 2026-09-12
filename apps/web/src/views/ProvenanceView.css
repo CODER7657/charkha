@@ -1,0 +1,265 @@
+/* Provenance — the receipts, where the claim is made. Owned by core.
+   Scoped under .provenance so it cannot reach into another view. */
+
+.provenance {
+  gap: 16px;
+}
+
+.pv-card {
+  background: var(--soot);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 15px 16px 17px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pv-card > header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  border-bottom: 1px solid var(--line-soft);
+  padding-bottom: 9px;
+}
+.pv-card h2 {
+  font-size: 13.5px;
+  margin: 0;
+  font-weight: 700;
+}
+.pv-card > header .muted {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.pv-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.pv-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+@media (max-width: 940px) {
+  .pv-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- honesty table ---------- */
+
+.pv-honesty {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--line-soft);
+  border: 1px solid var(--line-soft);
+}
+@media (max-width: 820px) {
+  .pv-honesty {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pv-honesty li {
+  background: var(--soot);
+  display: flex;
+  gap: 11px;
+  padding: 11px 12px;
+  align-items: flex-start;
+  min-width: 0;
+}
+.pv-honesty li div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.pv-honesty b {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.pv-honesty span:not(.pv-pill) {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+/* Status carries a word, not only a hue - a colourblind judge and a
+   washed-out projector both need the label. */
+.pv-pill {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border-radius: 2px;
+  flex: none;
+  min-width: 66px;
+  text-align: center;
+  border: 1px solid transparent;
+}
+.pv-pill.real {
+  background: var(--seq-dim);
+  color: var(--seq);
+  border-color: color-mix(in srgb, var(--seq) 40%, transparent);
+}
+.pv-pill.partial {
+  background: rgb(255 176 46 / 0.12);
+  color: var(--flame);
+  border-color: color-mix(in srgb, var(--flame) 40%, transparent);
+}
+.pv-pill.no {
+  background: var(--crust);
+  color: var(--faint);
+  border-color: var(--line);
+}
+
+/* ---------- carbon factors ---------- */
+
+.pv-formula {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--flame);
+  background: var(--void);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.pv-factors {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.pv-factors > div {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  gap: 12px;
+  padding-bottom: 11px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.pv-factors > div:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.pv-factors dt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: right;
+}
+.pv-factors dt b {
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--seq);
+  line-height: 1.1;
+}
+.pv-factors dt span {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--faint);
+  line-height: 1.3;
+}
+.pv-factors dd {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.pv-factors dd b {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+/* The citation is the point of this screen, so it gets read, not truncated. */
+.pv-factors dd span {
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+/* ---------- key/value ---------- */
+
+.pv-kv {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.pv-kv > div {
+  display: grid;
+  grid-template-columns: 94px minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+}
+.pv-kv dt {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.pv-kv dd {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.pv-hash {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--seq);
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+
+.pv-note {
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--muted);
+  margin: 0;
+}
+
+/* ---------- check it yourself ---------- */
+
+.pv-verify {
+  margin: 0;
+  padding: 0 0 0 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.pv-verify li {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.pv-verify li::marker {
+  color: var(--seq);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.pv-verify b {
+  color: var(--ink);
+  font-weight: 600;
+}
