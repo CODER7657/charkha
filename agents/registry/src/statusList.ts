@@ -19,8 +19,31 @@ const LIST_BYTES = 16 * 1024;
 
 export const STATUS_LIST_ID = "credits";
 
+/**
+ * The absolute URL a holder will fetch to check revocation.
+ *
+ * PUBLIC_BASE_URL comes first, and that ordering is the whole fix. This read
+ * `REGISTRY_PUBLIC_URL ?? REGISTRY_URL`, and REGISTRY_URL is `http://registry:4004`
+ * under compose - an address that exists only inside the Docker network. The
+ * variable documented in .env.example and actually set on the VM is
+ * PUBLIC_BASE_URL, which nothing here consulted, so every credential issued on
+ * the deployed host named a status list no holder could reach.
+ *
+ * This URL goes INSIDE the signature. It cannot be corrected afterwards, so a
+ * credential minted while this is wrong is disposable - reissue rather than
+ * repair. Check it after any deploy:
+ *
+ *   curl -s https://<host>/status/credits | cut -d. -f2 | base64 -d
+ *
+ * The list is served by the gateway, not by the registry's own port, because
+ * the gateway is the only origin published to the internet.
+ */
 const statusListUrl = (): string => {
-  const base = process.env["REGISTRY_PUBLIC_URL"] ?? process.env["REGISTRY_URL"] ?? "http://localhost:4004";
+  const base =
+    process.env["PUBLIC_BASE_URL"] ??
+    process.env["REGISTRY_PUBLIC_URL"] ??
+    process.env["REGISTRY_URL"] ??
+    "http://localhost:4004";
   return `${base.replace(/\/+$/, "")}/status/${STATUS_LIST_ID}`;
 };
 
