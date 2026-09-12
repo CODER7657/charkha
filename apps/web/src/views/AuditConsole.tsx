@@ -141,18 +141,7 @@ export const AuditConsole = () => {
   }, [load, tamperMode]);
 
   /* The whole point: we re-derive every hash here, not on the server. */
-  const verifyHere = useCallback(() => {
-    const v = verifyChain(chain);
-    setVerdict(v);
-    /* Take the reader to the break. The banner naming a seq is no use when the
-       row is 40 entries down a scrolling list, which is exactly how this read
-       on the deployed host. After paint, so the class is on the element. */
-    if (!v.valid) {
-      requestAnimationFrame(() =>
-        brokenRowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }),
-      );
-    }
-  }, [chain]);
+  const verifyHere = useCallback(() => setVerdict(verifyChain(chain)), [chain]);
 
   const tamper = (seq: number, field: "action" | "confidence", raw: string) => {
     setChain((current) =>
@@ -172,6 +161,17 @@ export const AuditConsole = () => {
   );
 
   const brokenAt = verdict && !verdict.valid ? verdict.brokenAtSeq : null;
+
+  /* Take the reader to the break, AFTER React has committed.
+     The first attempt did this inside the verify handler with a
+     requestAnimationFrame - which runs before the commit, so the ref was still
+     null and the list stayed at #0 with the break 3000px below. Measured on
+     the deployed host; the fix is an effect, because an effect is the thing
+     that runs once the element with the ref actually exists. */
+  useEffect(() => {
+    if (brokenAt === null) return;
+    brokenRowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [brokenAt]);
 
   const banner = !verdict
     ? { className: "unknown", stamp: "NOT VERIFIED HERE", detail: serverSaid === null ? "" : `the server reports ${serverSaid ? "valid" : "BROKEN"} - do not take its word for it` }
