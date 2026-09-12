@@ -222,6 +222,18 @@ Caddy obtains and renews the certificate itself. No certbot, no cron.
 docker compose up -d --build
 ```
 
+> **If you changed `Caddyfile`, that is not enough.** `git pull` replaces the
+> file rather than editing it in place, and Docker bind-mounts a single file by
+> inode — so the container keeps serving the config it started with, and
+> `caddy reload` happily reloads the *old* file. Recreate it:
+>
+> ```bash
+> docker compose up -d --force-recreate caddy
+> ```
+>
+> Verify with `curl -I https://<host>/ | grep -i content-security-policy`
+> rather than assuming.
+
 First build pulls the Node image and installs the workspace — several minutes.
 
 ```bash
@@ -329,6 +341,7 @@ az group delete --name charkha-rg --yes --no-wait
 | `migrate` exits non-zero | `POSTGRES_PASSWORD` unset in `.env`; compose requires it deliberately |
 | Agents up, calls 404 | Gateway cannot reach agents; check service names in compose |
 | Everything slow, OOM kills | VM too small. 2 vCPU / 4 GiB minimum |
+| Caddyfile edits do nothing | `git pull` writes a NEW file, so the single-file bind mount still points at the old inode. `docker compose up -d --force-recreate caddy` — a plain `up` and even `caddy reload` will not help |
 | `SkuNotAvailable` at create | Capacity restriction, not quota. Try another x86 size before another region — see §0 |
 
 ---
