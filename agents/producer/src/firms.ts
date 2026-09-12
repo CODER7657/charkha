@@ -39,6 +39,36 @@ export const BELT_BBOX = "73.8,29.5,77.5,32.2";
  * worse answer than the rectangle.
  */
 export const INDIA_BBOX = "68.0,6.5,97.5,35.8";
+/**
+ * Boxes inside INDIA_BBOX that are entirely not India, and are dropped.
+ *
+ * A bbox is a rectangle and the subcontinent is not, so the request
+ * necessarily pulls sea and neighbouring territory. Most of that is empty or
+ * sparse and reads as what it is - a rectangle. Sri Lanka does not: on the
+ * first national pull it was **506 of 1,226 detections, 41%**, and a map
+ * captioned India where two of every five fires are in another country is a
+ * credibility problem rather than a footnote.
+ *
+ * The rule is deliberately narrow, and it is the only one we can defend: drop
+ * a box ONLY when no part of India lies inside it. Sri Lanka's bounding box
+ * reaches 82.0E and 10.0N; the nearest Indian land in that longitude band is
+ * the Nagapattinam coast above 10.3N, and Dhanushkodi, the closest point of
+ * all, sits at 79.45E - west of the western edge. So nothing Indian is lost.
+ *
+ * This is NOT a border check. We are not filtering by country, we have no
+ * boundary dataset we could verify, and pretending otherwise would be worse
+ * than the rectangle. Pakistani Punjab, Nepal and the Myanmar border stay in
+ * the feed and on the map, because a rectangle drawn around them would take
+ * Indian land with it. A detection is a detection; we say where it was.
+ */
+export const EXCLUDED: ReadonlyArray<{ name: string; west: number; south: number; east: number; north: number }> = [
+  { name: "Sri Lanka", west: 79.5, south: 5.8, east: 82.0, north: 10.0 },
+];
+
+/** True when a point falls in a box we deliberately do not ingest. */
+export const isExcluded = (lat: number, lon: number): boolean =>
+  EXCLUDED.some((b) => lon >= b.west && lon <= b.east && lat >= b.south && lat <= b.north);
+
 /** west,south,east,north - the order the FIRMS area API expects. */
 export const DEFAULT_BBOX = INDIA_BBOX;
 /**
@@ -428,6 +458,8 @@ export type IngestPlan = {
   skippedLowConfidence: number;
   skippedDuplicate: number;
   skippedUnparseable: number;
+  /** Detections dropped because they fall in an excluded box - see EXCLUDED. */
+  skippedOutsideArea: number;
 };
 
 /**
@@ -447,6 +479,7 @@ export const planIngest = (
     skippedLowConfidence: 0,
     skippedDuplicate: 0,
     skippedUnparseable: 0,
+    skippedOutsideArea: 0,
   };
   // Within one response FIRMS can repeat a detection across overlapping
   // granules, so dedupe against this batch as well as against the database.
@@ -458,6 +491,10 @@ export const planIngest = (
       continue;
     }
     plan.parsed += 1;
+    if (isExcluded(detection.at.lat, detection.at.lon)) {
+      plan.skippedOutsideArea += 1;
+      continue;
+    }
     if (isLowConfidence(String(detection.confidence))) {
       plan.skippedLowConfidence += 1;
       continue;

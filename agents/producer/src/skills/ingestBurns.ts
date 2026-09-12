@@ -100,7 +100,8 @@ export const ingestBurns = async (
 
   ctx.progress(
     `${lotsCreated} new lots; skipped ${plan.skippedDuplicate} already seen, ` +
-      `${plan.skippedLowConfidence} low-confidence, ${plan.skippedUnparseable} unreadable`,
+      `${plan.skippedLowConfidence} low-confidence, ${plan.skippedUnparseable} unreadable, ` +
+      `${plan.skippedOutsideArea} outside the area we claim to cover`,
   );
 
   const output = {

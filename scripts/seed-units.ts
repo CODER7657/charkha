@@ -82,4 +82,55 @@ export const UNITS: ReadonlyArray<{
      sites rather than one, so widening the country does not quietly turn
      "unmatched" into a branch nothing reaches. */
   { unitId: "unit_ghy", name: "Guwahati Paddy Char Unit", lat: 26.144, lon: 91.736, capacityTonnesPerDay: 20, accepts: ["paddy_straw"] },
+
+  /* ---------------- filling the catchments ----------------
+   *
+   * Twenty-five units across a country is a map, not a network. Measured
+   * against the first national pull: of 1,158 listed lots only 25 sat within
+   * 60 km of a unit that accepts their feedstock, so "Run matching" placed 25
+   * and left 1,133 - and the binding constraint was RANGE, not capacity. The
+   * 25 units had roughly 875 t/day between them and committed under 100 t.
+   *
+   * Adding capacity would have changed nothing. Adding catchments is the fix,
+   * so these sit on the clusters the live feed actually shows rather than on
+   * the biggest cities. Same lesson as #33 at national scale: units in the
+   * middle of a region cannot represent the region.
+   *
+   * Most lots stay unplaced even now, and that is the honest picture - India
+   * burns far more residue than anyone has plant to convert. The gap is the
+   * finding, not a bug to tune away. */
+
+  // --- the Indo-Gangetic plain, the densest burn belt after Punjab ---
+  { unitId: "unit_hsr", name: "Hisar Straw Carbon", lat: 29.153, lon: 75.722, capacityTonnesPerDay: 30, accepts: ["wheat_straw", "paddy_straw", "mixed"] },
+  { unitId: "unit_mzn", name: "Muzaffarnagar Cane Char", lat: 29.472, lon: 77.704, capacityTonnesPerDay: 35, accepts: ["sugarcane_trash", "mixed"] },
+  { unitId: "unit_bre", name: "Bareilly Residue Unit", lat: 28.367, lon: 79.430, capacityTonnesPerDay: 30, accepts: ["paddy_straw", "wheat_straw", "mixed"] },
+  { unitId: "unit_gkp", name: "Gorakhpur Biochar Co-op", lat: 26.760, lon: 83.374, capacityTonnesPerDay: 25, accepts: ["paddy_straw", "sugarcane_trash", "mixed"] },
+  { unitId: "unit_vns", name: "Varanasi Agri-Carbon", lat: 25.318, lon: 82.973, capacityTonnesPerDay: 30, accepts: ["paddy_straw", "mixed"] },
+  { unitId: "unit_mfp", name: "Muzaffarpur Residue Works", lat: 26.120, lon: 85.391, capacityTonnesPerDay: 25, accepts: ["maize_stover", "paddy_straw", "mixed"] },
+  { unitId: "unit_bgp", name: "Bhagalpur Char Unit", lat: 25.244, lon: 86.992, capacityTonnesPerDay: 20, accepts: ["paddy_straw", "mixed"] },
+  // --- Bengal, Odisha and the eastern delta ---
+  { unitId: "unit_brd", name: "Bardhaman Paddy Carbon", lat: 23.255, lon: 87.856, capacityTonnesPerDay: 30, accepts: ["paddy_straw", "mixed"] },
+  { unitId: "unit_mld", name: "Malda Residue Hub", lat: 25.011, lon: 88.144, capacityTonnesPerDay: 20, accepts: ["paddy_straw", "mixed"] },
+  { unitId: "unit_smb", name: "Sambalpur Biomass Works", lat: 21.470, lon: 83.975, capacityTonnesPerDay: 25, accepts: ["paddy_straw", "mixed"] },
+  { unitId: "unit_rou", name: "Rourkela Char Co-op", lat: 22.261, lon: 84.854, capacityTonnesPerDay: 20, accepts: ["paddy_straw", "maize_stover", "mixed"] },
+  // --- central India ---
+  { unitId: "unit_ind", name: "Indore Agri-Carbon", lat: 22.720, lon: 75.858, capacityTonnesPerDay: 35, accepts: ["wheat_straw", "maize_stover", "mixed"] },
+  { unitId: "unit_jbp", name: "Jabalpur Residue Unit", lat: 23.181, lon: 79.986, capacityTonnesPerDay: 25, accepts: ["wheat_straw", "paddy_straw", "mixed"] },
+  { unitId: "unit_rpr", name: "Raipur Paddy Char", lat: 21.251, lon: 81.630, capacityTonnesPerDay: 30, accepts: ["paddy_straw", "mixed"] },
+  { unitId: "unit_kta", name: "Kota Biochar Works", lat: 25.213, lon: 75.865, capacityTonnesPerDay: 25, accepts: ["wheat_straw", "mixed"] },
+  { unitId: "unit_jdh", name: "Jodhpur Residue Co-op", lat: 26.238, lon: 73.024, capacityTonnesPerDay: 20, accepts: ["wheat_straw", "mixed"] },
+  // --- Gujarat and the west coast ---
+  { unitId: "unit_bhv", name: "Bhavnagar Waste-to-Char", lat: 21.764, lon: 72.151, capacityTonnesPerDay: 25, accepts: ["mixed", "sugarcane_trash"] },
+  { unitId: "unit_srt", name: "Surat Cane Trash Unit", lat: 21.170, lon: 72.831, capacityTonnesPerDay: 30, accepts: ["sugarcane_trash", "mixed"] },
+  { unitId: "unit_aur", name: "Chhatrapati Sambhajinagar Char", lat: 19.876, lon: 75.343, capacityTonnesPerDay: 30, accepts: ["sugarcane_trash", "maize_stover", "mixed"] },
+  { unitId: "unit_klp", name: "Kolhapur Cane Carbon", lat: 16.705, lon: 74.243, capacityTonnesPerDay: 35, accepts: ["sugarcane_trash", "mixed"] },
+  { unitId: "unit_sol", name: "Solapur Residue Works", lat: 17.659, lon: 75.906, capacityTonnesPerDay: 25, accepts: ["sugarcane_trash", "maize_stover", "mixed"] },
+  // --- the Deccan and the south ---
+  { unitId: "unit_wgl", name: "Warangal Paddy Char", lat: 17.978, lon: 79.594, capacityTonnesPerDay: 30, accepts: ["paddy_straw", "maize_stover", "mixed"] },
+  { unitId: "unit_gnt", name: "Guntur Delta Biochar", lat: 16.306, lon: 80.437, capacityTonnesPerDay: 35, accepts: ["paddy_straw", "mixed"] },
+  { unitId: "unit_kur", name: "Kurnool Residue Unit", lat: 15.828, lon: 78.037, capacityTonnesPerDay: 25, accepts: ["maize_stover", "mixed"] },
+  { unitId: "unit_hbl", name: "Hubballi Char Co-op", lat: 15.364, lon: 75.124, capacityTonnesPerDay: 25, accepts: ["maize_stover", "sugarcane_trash", "mixed"] },
+  { unitId: "unit_myr", name: "Mysuru Biochar Works", lat: 12.295, lon: 76.639, capacityTonnesPerDay: 20, accepts: ["sugarcane_trash", "mixed"] },
+  { unitId: "unit_tjv", name: "Thanjavur Delta Carbon", lat: 10.787, lon: 79.138, capacityTonnesPerDay: 30, accepts: ["paddy_straw", "mixed"] },
+  { unitId: "unit_mdu", name: "Madurai Residue Hub", lat: 9.925, lon: 78.120, capacityTonnesPerDay: 25, accepts: ["paddy_straw", "sugarcane_trash", "mixed"] },
 ];

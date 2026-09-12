@@ -9,6 +9,7 @@ import {
   districtFor,
   estimateTonnes,
   feedstockForDate,
+  isExcluded,
   isLowConfidence,
   looksLikeCsv,
   MAX_LOT_TONNES,
@@ -307,5 +308,65 @@ describe("planIngest", () => {
   it("produces a stable lot id derived from the detection", () => {
     const plan = planIngest(parseCsv(csv(row())), new Set());
     expect(plan.lots[0]?.lotId).toBe(plan.detections[0]?.detectionId.replace(/^det_/, "lot_"));
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * The excluded boxes.
+ *
+ * The whole justification for dropping a box is that no part of India lies
+ * inside it. If that is ever false the exclusion is silently deleting real
+ * Indian detections, which is far worse than showing foreign ones - so the
+ * claim is a test, not a comment.
+ * ------------------------------------------------------------------ */
+describe("boxes we deliberately do not ingest", () => {
+  /* Southernmost and easternmost Indian land anywhere near the Sri Lanka box.
+     Dhanushkodi is the closest point of all and sits WEST of its edge. */
+  const INDIAN_LAND: Array<[string, number, number]> = [
+    ["Dhanushkodi", 9.153, 79.446],
+    ["Rameswaram", 9.288, 79.313],
+    ["Kanyakumari", 8.078, 77.541],
+    ["Thoothukudi", 8.764, 78.134],
+    ["Nagapattinam", 10.766, 79.843],
+    ["Vedaranyam", 10.376, 79.851],
+    ["Port Blair", 11.623, 92.726],
+  ];
+
+  it.each(INDIAN_LAND)("keeps %s", (_name, lat, lon) => {
+    expect(isExcluded(lat, lon)).toBe(false);
+  });
+
+  const SRI_LANKA: Array<[string, number, number]> = [
+    ["Jaffna", 9.661, 80.026],
+    ["Anuradhapura", 8.311, 80.403],
+    ["Colombo", 6.927, 79.861],
+    ["Batticaloa", 7.717, 81.700],
+  ];
+
+  it.each(SRI_LANKA)("drops %s", (_name, lat, lon) => {
+    expect(isExcluded(lat, lon)).toBe(true);
+  });
+
+  /* Not a border filter, and the difference matters. These are outside India
+     and stay in the feed, because any rectangle drawn around them would take
+     Indian land with it. We say where a detection was; we do not pretend to
+     know which country it was in. */
+  it.each([
+    ["Lahore, Pakistan", 31.520, 74.358],
+    ["Kathmandu, Nepal", 27.717, 85.324],
+    ["Mandalay, Myanmar", 21.975, 96.084],
+  ])("does not pretend to be a border check: keeps %s", (_name, lat, lon) => {
+    expect(isExcluded(lat, lon)).toBe(false);
+  });
+
+  it("counts what it dropped rather than dropping it silently", () => {
+    const rows = [
+      { latitude: "8.311", longitude: "80.403", acq_date: "2026-09-10", acq_time: "0744", satellite: "N20", confidence: "n", frp: "5.1", bright_ti4: "310" },
+      { latitude: "30.901", longitude: "75.857", acq_date: "2026-09-10", acq_time: "0744", satellite: "N20", confidence: "n", frp: "5.1", bright_ti4: "310" },
+    ];
+    const plan = planIngest(rows, new Set());
+    expect(plan.skippedOutsideArea).toBe(1);
+    expect(plan.lots).toHaveLength(1);
+    expect(plan.lots[0]!.at.lon).toBeCloseTo(75.857, 3);
   });
 });
