@@ -466,3 +466,41 @@ describe("an embedding cannot smuggle a write past the slot requirement", () => 
     }
   });
 });
+
+/* ------------------------------------------------------------------ *
+ * A failed write is not an invitation to answer something else.
+ *
+ * Found by running the real model: "declare some waste" resolved to
+ * `lot_status` at 0.72, because the embedding legitimately found it similar to
+ * "what happened to our waste". Tier 1 refuses that sentence on purpose - the
+ * person said "declare" and did not say how much of what - and an embedding
+ * quietly reinterpreting it as a status query is a confidently wrong answer to
+ * a question nobody asked.
+ *
+ * The same hole would let "retire my credit" come back as a read.
+ * ------------------------------------------------------------------ */
+describe("a write verb without its object is refused, not reinterpreted", () => {
+  const always = (intent: AssistantIntent, score: number) => async () => [{ intent, score }];
+
+  it("does not answer a failed declare with a lot status", async () => {
+    const resolver = makeResolver({ embedCandidates: always("lot_status", 0.9) });
+    expect((await resolver("declare some waste", "en")).intent).toBe("unknown");
+  });
+
+  it("does not answer a failed retire with anything else", async () => {
+    const resolver = makeResolver({ embedCandidates: always("lot_status", 0.95) });
+    expect((await resolver("retire my credit", "en")).intent).toBe("unknown");
+    expect((await resolver("please retire it for us", "en")).intent).toBe("unknown");
+  });
+
+  it("still answers normally when no write verb was used", async () => {
+    const resolver = makeResolver({ embedCandidates: always("lot_status", 0.9) });
+    expect((await resolver("any news on the load we sent last week", "en")).intent).toBe("lot_status");
+  });
+
+  it("still completes the write when the object is named", async () => {
+    const resolver = makeResolver({ embedCandidates: always("lot_status", 0.95) });
+    const r = await resolver("retire crd_d17eb9d2cd204ed497c5 for our report", "en");
+    expect(r.intent).toBe("retire_credit");
+  });
+});

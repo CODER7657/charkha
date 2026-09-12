@@ -271,7 +271,17 @@ const IMPACT = [
   /\b(total|overall) (co2|carbon|impact)\b/,
   /\bimpact\b/,
 ];
-const DECLARE = [/\bdeclare\b/, /\bwe have\b/, /घोषित/, /ਸਾਡੇ ਕੋਲ/, /અમારી પાસે/];
+/**
+ * An explicit instruction to declare. Strong enough to own the sentence.
+ *
+ * Kept apart from mere possession on purpose: "we have a question about how
+ * this works" says "we have" and is not a declaration, so treating that phrase
+ * as a write verb would refuse a perfectly good question.
+ */
+const DECLARE_VERB = [/\bdeclare\b/, /घोषित/];
+/** Describing what you hold. Enough to score a declaration, not to own the sentence. */
+const DECLARE_HINT = [/\bwe have\b/, /ਸਾਡੇ ਕੋਲ/, /અમારી પાસે/];
+const DECLARE = [...DECLARE_VERB, ...DECLARE_HINT];
 
 const candidates = (text: string, slots: AssistantSlots): Candidate[] => {
   const out: Candidate[] = [];
@@ -320,6 +330,24 @@ const candidates = (text: string, slots: AssistantSlots): Candidate[] => {
  * credit" while naming no credit at all - and the gate above this file only
  * ever sees a number.
  */
+/**
+ * The write this sentence is attempting, if it names one outright.
+ *
+ * A write verb owns its sentence. Found by running the real model: "declare
+ * some waste" came back as `lot_status` at 0.72, because an embedding
+ * legitimately found it similar to "what happened to our waste". But the
+ * person said "declare" - answering with a status report is a confident answer
+ * to a question nobody asked, and Tier 1 refuses that sentence deliberately.
+ *
+ * The same hole let an embedding at 0.95 outrank an explicit
+ * "retire crd_..." at 0.90 and answer a retirement with a lot status.
+ *
+ * So: either the named write completes, or the sentence is refused. Nothing
+ * else gets to answer it.
+ */
+export const attemptedWrite = (text: string): AssistantIntent | null =>
+  has(text, RETIRE) ? "retire_credit" : has(text, DECLARE_VERB) ? "declare_waste" : null;
+
 export const namesItsObject = (intent: AssistantIntent, slots: AssistantSlots): boolean => {
   if (intent === "retire_credit") return Boolean(slots.creditId);
   if (intent === "declare_waste") return slots.tonnes !== undefined && Boolean(slots.feedstock);
@@ -360,8 +388,12 @@ const read = (utterance: string): { text: string; slots: AssistantSlots } => {
  * nothing to hedge. Otherwise report the honest score and let MIN_CONFIDENCE
  * in answer.ts decide whether that is enough to act on.
  */
-const pick = (all: Candidate[], slots: AssistantSlots): Resolution => {
-  const eligible = all.filter((c) => namesItsObject(c.intent, slots));
+const pick = (all: Candidate[], slots: AssistantSlots, text: string): Resolution => {
+  /* A named write owns the sentence - see attemptedWrite. */
+  const attempted = attemptedWrite(text);
+  const pool = attempted ? all.filter((c) => c.intent === attempted) : all;
+
+  const eligible = pool.filter((c) => namesItsObject(c.intent, slots));
   const best = eligible.sort((a, b) => b.score - a.score)[0];
   return best ? { intent: best.intent, slots, confidence: best.score } : unknownAt(slots);
 };
@@ -370,7 +402,7 @@ const pick = (all: Candidate[], slots: AssistantSlots): Resolution => {
 export const resolve = (utterance: string, _lang: AssistantLang): Resolution => {
   const { text, slots } = read(utterance);
   if (!text) return unknownAt();
-  return pick(candidates(text, slots), slots);
+  return pick(candidates(text, slots), slots, text);
 };
 
 export type EmbedCandidates = (text: string) => Promise<Candidate[]>;
@@ -396,5 +428,5 @@ export const makeResolver =
     /* A broken model degrades to Tier 1 rather than failing the request. */
     const embedded = deps.embedCandidates ? await deps.embedCandidates(text).catch(() => []) : [];
 
-    return pick([...patterned, ...embedded], slots);
+    return pick([...patterned, ...embedded], slots, text);
   };
