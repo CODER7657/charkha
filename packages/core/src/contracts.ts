@@ -38,6 +38,25 @@ export const BurnDetection = z.object({
 export type BurnDetection = z.infer<typeof BurnDetection>;
 
 /** A quantity of crop residue offered by a producer, ready to be collected. */
+/**
+ * How this lot entered the system, and it must never be inferred.
+ *
+ * A satellite detection is independent evidence: NASA saw a thermal anomaly
+ * whether or not anyone wanted it seen. A declaration is a claim by somebody
+ * who stands to be paid for it. Those carry different weight, and a carbon
+ * system that blurs them is doing the thing carbon markets are criticised for.
+ *
+ * We need declarations regardless: FIRMS detects fire, so the statement's
+ * headline pathway - organic waste going to landfill - is structurally
+ * invisible to it. A municipality's food waste never burns. Declaration is how
+ * municipalities and food-industry generators enter at all.
+ *
+ * So both paths exist and neither pretends to be the other. Declared lots are
+ * marked on the map, in the ledger and on the credential.
+ */
+export const WasteOrigin = z.enum(["detected", "declared"]);
+export type WasteOrigin = z.infer<typeof WasteOrigin>;
+
 export const ResidueLot = z.object({
   lotId: z.string(),
   producerId: z.string(),
@@ -48,6 +67,11 @@ export const ResidueLot = z.object({
   availableFrom: z.string().datetime(),
   sourceDetectionId: z.string().nullable(),
   status: z.enum(["listed", "matched", "collected", "converted", "credited"]),
+  /* Optional on purpose while the declare path is built separately: every lot
+     that exists today is detected, and making this required would force a
+     value into call sites that have nothing to say about it yet. The producer
+     sets it explicitly on both paths; absent reads as detected. */
+  origin: WasteOrigin.optional(),
 });
 export type ResidueLot = z.infer<typeof ResidueLot>;
 
@@ -274,3 +298,128 @@ export const TraceBundle = z.object({
   chainValid: z.boolean(),
 });
 export type TraceBundle = z.infer<typeof TraceBundle>;
+
+/* ------------------------------------------------------------------ *
+ * Declared waste - the second supply path.
+ *
+ * The producer's only source today is the FIRMS fire feed, which by
+ * construction finds waste that is BURNING. Two of the four users this
+ * project is written for never burn anything: a municipality landfills its
+ * organic waste, and a food factory fills a skip. They cannot enter a system
+ * whose front door is a thermal anomaly.
+ *
+ * A declaration is weaker evidence than a detection and is recorded as such -
+ * see WasteOrigin. It is not a lesser lot; it is an honestly labelled one.
+ * ------------------------------------------------------------------ */
+
+export const DeclareWasteInput = z.object({
+  /** Who says so. A panchayat, a municipal ward, a factory. */
+  declaredBy: z.string().min(1).max(120),
+  feedstock: FeedstockClass,
+  tonnes: z.number().positive().max(10_000),
+  at: GeoPoint,
+  district: z.string().min(1).max(120).nullable(),
+  /** When it is ready for collection. Defaults to now at the agent. */
+  availableFrom: z.string().datetime().optional(),
+  /** Free text from the declarer, kept verbatim for the ledger. */
+  note: z.string().max(280).optional(),
+});
+export type DeclareWasteInput = z.infer<typeof DeclareWasteInput>;
+
+export const DeclareWasteOutput = z.object({ lot: ResidueLot });
+export type DeclareWasteOutput = z.infer<typeof DeclareWasteOutput>;
+
+/* ------------------------------------------------------------------ *
+ * Saathi - the assistant agent a human talks to.
+ *
+ * It owns no business logic. It resolves what was asked, plans which of the
+ * existing skills answer it, calls them over A2A like any other agent, and
+ * reports the hops it made. Every guard those skills already enforce still
+ * applies, because it is the same code path.
+ * ------------------------------------------------------------------ */
+
+export const AssistantLang = z.enum(["en", "hi", "pa", "gu"]);
+export type AssistantLang = z.infer<typeof AssistantLang>;
+
+/** Closed set on purpose. An assistant that can attempt anything can be talked into anything. */
+export const AssistantIntent = z.enum([
+  "lot_status",
+  "declare_waste",
+  "run_matching",
+  "credit_status",
+  "retire_credit",
+  "impact_summary",
+  "how_it_works",
+  "unknown",
+]);
+export type AssistantIntent = z.infer<typeof AssistantIntent>;
+
+/** Everything the resolver can pull out of an utterance. All optional; the planner decides what it needs. */
+export const AssistantSlots = z.object({
+  district: z.string().max(120).optional(),
+  feedstock: FeedstockClass.optional(),
+  tonnes: z.number().positive().max(10_000).optional(),
+  lotId: z.string().max(160).optional(),
+  creditId: z.string().max(160).optional(),
+  taskId: z.string().max(160).optional(),
+  holder: z.string().max(120).optional(),
+  declaredBy: z.string().max(120).optional(),
+  radiusKm: z.number().positive().max(500).optional(),
+});
+export type AssistantSlots = z.infer<typeof AssistantSlots>;
+
+export const AssistantAskInput = z.object({
+  utterance: z.string().min(1).max(500),
+  lang: AssistantLang.default("en"),
+  /**
+   * Echoed back from a previous answer's `confirmation.token` to actually
+   * perform a write. An intent that mutates NEVER executes on the first ask -
+   * the assistant says what it is about to do and waits. This is the whole
+   * safety model for letting a sentence run a skill.
+   */
+  confirm: z.string().max(200).optional(),
+});
+export type AssistantAskInput = z.infer<typeof AssistantAskInput>;
+
+/** One real A2A call the assistant made. Returned so the UI can show the mesh working. */
+export const AgentHop = z.object({
+  agent: z.string(),
+  skill: z.string(),
+  taskId: z.string().nullable(),
+  ms: z.number().nonnegative(),
+  ok: z.boolean(),
+});
+export type AgentHop = z.infer<typeof AgentHop>;
+
+/**
+ * A key and its parameters, never a finished sentence.
+ *
+ * The verifier returns English prose in `reasons`, and on a Punjabi screen
+ * that prose stays English because `t()` cannot reach inside it. We are not
+ * repeating that here: the assistant returns what to say, the client decides
+ * in which language to say it.
+ */
+export const AssistantMessage = z.object({
+  key: z.string().min(1),
+  params: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).default({}),
+});
+export type AssistantMessage = z.infer<typeof AssistantMessage>;
+
+export const AssistantAnswerOutput = z.object({
+  intent: AssistantIntent,
+  slots: AssistantSlots,
+  /** 0..1. Below the resolver's threshold the intent is `unknown` and nothing is planned. */
+  confidence: z.number().min(0).max(1),
+  reply: AssistantMessage,
+  /** Present only when the intent would write, and nothing has happened yet. */
+  confirmation: z
+    .object({ token: z.string().min(1), summary: AssistantMessage })
+    .nullable()
+    .default(null),
+  /** Set once a confirmed write actually ran. */
+  performed: z.boolean().default(false),
+  hops: z.array(AgentHop).default([]),
+  /** Whatever the planned skills returned, for the UI to render. Shape varies by intent. */
+  data: z.unknown().nullable().default(null),
+});
+export type AssistantAnswerOutput = z.infer<typeof AssistantAnswerOutput>;
