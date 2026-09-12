@@ -177,6 +177,29 @@ app.get("/api/trace/:taskId", async (req, reply) => {
 
 app.get("/api/verify-ledger", async () => verifyLedger());
 
+/* ---- Saathi ---- *
+ *
+ * Deliberately NOT in the AGENTS map.
+ *
+ * /api/health iterates that map and derives `ok` from every member being up,
+ * and the verify job boots exactly the four agents that make decisions. Adding
+ * a fifth would change what "healthy" means: the chain would report broken
+ * because a chat box was down.
+ *
+ * It is also just true. The four agents produce the decisions that end up in
+ * the ledger; Saathi is a front door TO them and holds no business logic of
+ * its own. A mesh member and a way in are different things and the health
+ * endpoint should keep saying so.
+ */
+const assistant = (): { name: string; baseUrl: string } => ({
+  name: "assistant",
+  baseUrl: process.env["ASSISTANT_URL"] ?? "http://localhost:4005",
+});
+
+app.post("/api/saathi", async (req) =>
+  callAgent(assistant(), "answer", req.body, { callerName: "gateway" }),
+);
+
 /* ------------------------------------------------------------------ *
  * Public, unauthenticated, and deliberately NOT under /api.
  *
