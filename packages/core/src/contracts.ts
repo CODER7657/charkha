@@ -268,6 +268,26 @@ export const RetireCreditInput = z.object({
 });
 export const RetireCreditOutput = z.object({ credit: CreditRecord });
 
+/**
+ * Read one credit by its id.
+ *
+ * The registry could issue and retire, but nothing could answer "is credit X
+ * still live, what is it worth, what backs it". A holder has the credit id -
+ * `/api/trace/:taskId` is keyed by task id, and the status list answers "is
+ * bit N set", not "is this credit retired". Saathi is the first surface where
+ * that gap is visible, but it is not Saathi's gap.
+ */
+export const LookupCreditInput = z.object({ creditId: z.string() });
+/**
+ * A missing credit is an ANSWER, not a fault.
+ *
+ * Throwing would surface through the gateway's caller-error classifier as the
+ * registry's own English prose, which on a Punjabi screen stays English -
+ * exactly the failure the assistant's message keys exist to avoid. Returning
+ * null lets the caller say "no such credit" in the reader's language.
+ */
+export const LookupCreditOutput = z.object({ credit: CreditRecord.nullable() });
+
 /* ---------- DECISION LOG (shared, append-only) ---------- */
 
 export const DecisionRecord = z.object({
