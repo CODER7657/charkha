@@ -18,20 +18,22 @@
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "build:web": "pnpm -F @charkha/web build",
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build:web",
-    "setup:env": "tsx scripts/setup-env.ts"
+    "setup:env": "tsx scripts/setup-env.ts",
+    "e2e": "tsx scripts/e2e.mjs"
   },
   "devDependencies": {
+    "@charkha/a2a": "workspace:*",
+    "@charkha/core": "workspace:*",
+    "@charkha/db": "workspace:*",
+    "@eslint/js": "^9.18.0",
     "@types/node": "^22.10.2",
     "concurrently": "^9.1.2",
     "eslint": "^9.18.0",
+    "onnxruntime-node": "^1.29.0",
     "prettier": "^3.4.2",
     "tsx": "^4.23.13",
     "typescript": "^5.9.3",
-    "vitest": "^3.2.7",
-    "@eslint/js": "^9.18.0",
     "typescript-eslint": "^8.20.0",
-    "@charkha/a2a": "workspace:*",
-    "@charkha/db": "workspace:*",
-    "@charkha/core": "workspace:*"
+    "vitest": "^3.2.7"
   }
 }

@@ -37,9 +37,27 @@ export class AgentRequestError extends Error {
  * provokes every refusal for real and fails if one stops classifying.
  */
 export const isCallerError = (text: string): boolean =>
-  /invalid input|refusing to (issue|retire)|already been credited|no verification on record|does not match|belongs to match|no such |no lot /i.test(
-    text,
-  );
+  new RegExp(
+    [
+      // shared
+      "invalid input",
+      // registry
+      "refusing to (issue|retire)",
+      "already been credited",
+      "no verification on record",
+      "does not match",
+      "belongs to match",
+      "no such ",
+      "no lot ",
+      // verifier - a bad payload is the caller's, exactly like the above.
+      // These were 500 until an end-to-end run on the deployed host hit them:
+      // the classifier had only ever been grown against registry refusals.
+      "malformed evidence",
+      "was already submitted with different content",
+      "is being verified by another",
+    ].join("|"),
+    "i",
+  ).test(text);
 
 export type AgentTarget = { name: string; baseUrl: string };
 
