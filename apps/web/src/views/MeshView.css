@@ -105,7 +105,7 @@
 .mv-node header code {
   margin-left: auto;
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: 11.5px;
   color: var(--faint);
 }
 
@@ -149,7 +149,7 @@
 }
 .mv-figs span {
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: 11px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--faint);
@@ -244,7 +244,7 @@
 .mv-panel header .muted {
   margin-left: auto;
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -256,7 +256,7 @@
 /* agent identity: one hue per agent, used everywhere it appears */
 .mv-chip {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.06em;
   padding: 2px 6px;
   border-radius: 2px;
@@ -381,9 +381,11 @@
 }
 .mv-seq {
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: 11.5px;
   color: var(--faint);
-  width: 34px;
+  /* widened with the type: 34px fitted 10.5px digits and would clip a
+     four-figure seq at 11.5px. */
+  width: 40px;
   flex: none;
   font-variant-numeric: tabular-nums;
 }
@@ -397,13 +399,13 @@
 }
 .mv-hash {
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: 11.5px;
   color: var(--seq);
   margin-left: auto;
   flex: none;
 }
 .mv-log .muted {
-  font-size: 10.5px;
+  font-size: 11.5px;
   white-space: nowrap;
   flex: none;
   width: 62px;

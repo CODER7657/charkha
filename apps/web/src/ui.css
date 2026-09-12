@@ -24,7 +24,12 @@
   /* ink */
   --ink: #eef2ee;
   --muted: #93a29a;
-  --faint: #67756d;
+  /* Raised from #67756d, which measured 3.4-3.8:1 against the panel - under
+     the 4.5:1 floor everywhere it carried text, and that is most of the small
+     mono labels on Mesh and Provenance. Now ~5.25:1, still clearly dimmer than
+     --muted (~6.9:1) so the hierarchy survives. Measured on the deployed host,
+     not guessed. */
+  --faint: #7e8d84;
 
   /* fire — detections, heat, anything hot or wrong */
   --ember: #ff5a1f;
