@@ -60,7 +60,6 @@ const hop = (c: PlannedCall, taskId: string | null, ms: number, ok: boolean): Ag
   ok,
 });
 
-/** Everything an answer needs beyond what the planner produced. */
 /**
  * What the user reads when an agent refuses, and what we keep for ourselves.
  *
@@ -94,6 +93,7 @@ const refusal = (c: PlannedCall, intent: AssistantIntent, err: unknown) => ({
       : null,
 });
 
+/** Everything an answer needs beyond what the planner produced. */
 export type Resolved = { intent: AssistantIntent; slots: AssistantSlots; confidence: number };
 
 export const makePlanner =
