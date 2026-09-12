@@ -348,6 +348,32 @@ const candidates = (text: string, slots: AssistantSlots): Candidate[] => {
 export const attemptedWrite = (text: string): AssistantIntent | null =>
   has(text, RETIRE) ? "retire_credit" : has(text, DECLARE_VERB) ? "declare_waste" : null;
 
+/**
+ * The intent that owns this sentence outright, if any.
+ *
+ * A named write owns its sentence - that is attemptedWrite above, and the
+ * reason is documented there. But a question ABOUT that write is not an
+ * attempt at it, and it has to win the sentence rather than merely release
+ * it: releasing it only puts every other candidate back in the pool, and an
+ * embedding scoring the retirement at 0.99 then answers "how does this work"
+ * with a retirement confirmation. That is the same confidently-wrong answer
+ * attemptedWrite exists to prevent, arriving from the other direction.
+ *
+ * The asymmetry this fixes is specifically a language one. The English
+ * how-it-works patterns are anchored to their subject ("how does THIS work"),
+ * so an English sentence cannot say "retire" and "how does it work" at once by
+ * accident. The Hindi and Punjabi ones are the bare verb phrase, because that
+ * is how the question is actually asked - so "ਰਿਟਾਇਰ ਕਿਵੇਂ ਕੰਮ ਕਰਦਾ ਹੈ"
+ * says both, and was refused while the identical English sentence answered.
+ * Resolving Indic worse than English is the one outcome this screen cannot
+ * have.
+ *
+ * Ownership only ever moves a sentence towards a read. Nothing here can make
+ * a write eligible that was not already.
+ */
+export const sentenceOwner = (text: string): AssistantIntent | null =>
+  has(text, HOW_IT_WORKS) ? "how_it_works" : attemptedWrite(text);
+
 export const namesItsObject = (intent: AssistantIntent, slots: AssistantSlots): boolean => {
   if (intent === "retire_credit") return Boolean(slots.creditId);
   if (intent === "declare_waste") return slots.tonnes !== undefined && Boolean(slots.feedstock);
@@ -389,9 +415,9 @@ const read = (utterance: string): { text: string; slots: AssistantSlots } => {
  * in answer.ts decide whether that is enough to act on.
  */
 const pick = (all: Candidate[], slots: AssistantSlots, text: string): Resolution => {
-  /* A named write owns the sentence - see attemptedWrite. */
-  const attempted = attemptedWrite(text);
-  const pool = attempted ? all.filter((c) => c.intent === attempted) : all;
+  /* A named write - or a question about one - owns the sentence. */
+  const owner = sentenceOwner(text);
+  const pool = owner ? all.filter((c) => c.intent === owner) : all;
 
   const eligible = pool.filter((c) => namesItsObject(c.intent, slots));
   const best = eligible.sort((a, b) => b.score - a.score)[0];

@@ -504,3 +504,40 @@ describe("a write verb without its object is refused, not reinterpreted", () => 
     expect(r.intent).toBe("retire_credit");
   });
 });
+
+/* ------------------------------------------------------------------ *
+ * ...but a question ABOUT a write is not an attempt at one.
+ *
+ * The English how-it-works patterns are anchored to their subject - "how does
+ * THIS work" - so an English sentence cannot say "retire" and "how does it
+ * work" at the same time by accident. The Hindi and Punjabi ones are the bare
+ * verb phrase, because that is how the question is actually asked, and they
+ * collide with the write verb immediately.
+ *
+ * Without this, the identical question answered in English and was refused in
+ * Hindi and Punjabi. Resolving Indic worse than English is the one outcome
+ * this screen cannot have.
+ * ------------------------------------------------------------------ */
+describe("asking how a write works is not attempting the write", () => {
+  const asking: Array<[string, AssistantLang]> = [
+    ["ਰਿਟਾਇਰ ਕਿਵੇਂ ਕੰਮ ਕਰਦਾ ਹੈ", "pa"],
+    ["रिटायर कैसे काम करता है", "hi"],
+  ];
+
+  it.each(asking)("%s explains instead of refusing", (utterance, lang) => {
+    expect(resolve(utterance, lang).intent).toBe("how_it_works");
+  });
+
+  it("does not let the question become a way past the slot requirement", async () => {
+    /* The escape hatch must open a READ, never a write. A sentence that asks
+       how it works AND names a credit still must not retire anything. */
+    const resolver = makeResolver({ embedCandidates: async () => [{ intent: "retire_credit" as const, score: 0.99 }] });
+    const r = await resolver("how does this system work, retire crd_d17eb9d2cd204ed497c5", "en");
+    expect(r.intent).toBe("how_it_works");
+  });
+
+  it("still refuses a bare write verb, with no question in the sentence", () => {
+    expect(resolve("declare some waste", "en").intent).toBe("unknown");
+    expect(resolve("retire my credit", "en").intent).toBe("unknown");
+  });
+});
