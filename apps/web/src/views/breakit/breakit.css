@@ -1,0 +1,252 @@
+/* ------------------------------------------------------------------ *
+ * Break It — OWNER: Harsh
+ *
+ * A demo screen read from the back of a room through a projector, so the
+ * rules I held core to on #57 and #58 apply here first:
+ *
+ *   - nothing below 11px (legibility.test.ts enforces the floor)
+ *   - NO STATE DIFFERS BY HUE ALONE. A projector crushes contrast and some
+ *     judges are colour-blind. Every state below also changes the left border
+ *     weight and style, the background fill, and carries a glyph in the chip.
+ *     Turn the page greyscale and the three states are still distinguishable.
+ *
+ * The inversion worth stating out loud: on this screen GREEN means the system
+ * refused us, and RED means an attack succeeded. That is backwards from every
+ * other view, so the legend says it in words and the chip for a successful
+ * attack reads "IT WORKED" rather than anything that could be skimmed as a
+ * pass.
+ * ------------------------------------------------------------------ */
+
+.breakit {
+  --bi-held: var(--seq);
+  --bi-held-dim: var(--seq-dim);
+  --bi-broken: var(--ember);
+  --bi-broken-dim: var(--ember-dim);
+  --bi-idle: var(--line);
+}
+
+.breakit .bi-legend {
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.9;
+  color: var(--muted);
+}
+
+.breakit .bi-status {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--crust);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.breakit .bi-err {
+  border-color: var(--bi-broken-dim);
+  color: var(--ink);
+}
+
+.breakit .bi-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 12px;
+}
+
+/* ---- one attack ---- */
+
+.breakit .bi-row {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  /* The state lives here as well as in the hue: idle is a hairline, held is a
+     solid bar, broken is thicker still, not-proved is dashed. */
+  border-left: 3px solid var(--bi-idle);
+  border-radius: var(--radius);
+  background: var(--soot);
+}
+
+.breakit .bi-row.held {
+  border-left-color: var(--bi-held);
+  background: linear-gradient(90deg, var(--bi-held-dim) 0%, var(--soot) 22%);
+}
+
+.breakit .bi-row.broken {
+  border-color: var(--bi-broken);
+  border-left-width: 7px;
+  border-left-color: var(--bi-broken);
+  background: linear-gradient(90deg, var(--bi-broken-dim) 0%, var(--soot) 40%);
+}
+
+.breakit .bi-row.unknown {
+  border-left-style: dashed;
+  border-left-color: var(--faint);
+}
+
+.breakit .bi-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.breakit .bi-head h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 650;
+  color: var(--ink);
+}
+
+/* The attack number, so a judge and a presenter can say "try number four". */
+.breakit .bi-n {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ---- state chips ---- */
+
+.breakit .bi-chip {
+  flex: 0 0 auto;
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* The glyph is the point: greyscale this page and the chips still read. */
+.breakit .bi-chip::before {
+  margin-right: 5px;
+  font-weight: 700;
+}
+
+.breakit .bi-chip.held {
+  border-color: var(--bi-held);
+  background: var(--bi-held-dim);
+  color: var(--ink);
+}
+.breakit .bi-chip.held::before {
+  content: "✓";
+}
+
+.breakit .bi-chip.broken {
+  border-color: var(--bi-broken);
+  background: var(--bi-broken);
+  color: var(--void);
+}
+.breakit .bi-chip.broken::before {
+  content: "!";
+}
+
+.breakit .bi-chip.unknown {
+  border-style: dashed;
+  border-color: var(--faint);
+  color: var(--muted);
+}
+.breakit .bi-chip.unknown::before {
+  content: "–";
+}
+
+/* ---- the words ---- */
+
+.breakit .bi-tries {
+  margin: 0 0 4px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ink);
+}
+
+.breakit .bi-guard {
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.breakit .bi-blocked {
+  margin: 0 0 8px;
+  padding-left: 10px;
+  border-left: 2px dashed var(--faint);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.breakit .bi-detail {
+  margin: 10px 0 8px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ink);
+}
+
+.breakit .bi-row.broken .bi-detail {
+  font-weight: 650;
+}
+
+/* ---- the raw response, which is the whole credibility of this screen ---- */
+
+.breakit .bi-raw {
+  margin: 0;
+  padding: 10px 12px;
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--void);
+  font-family: var(--mono);
+  /* 12px and not smaller. This is the text a judge leans in to read, and it
+     is the evidence that none of this is theatre. */
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--ink);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ---- the button ---- */
+
+.breakit .bi-run {
+  padding: 8px 16px;
+  border: 1px solid var(--ember);
+  border-radius: var(--radius);
+  background: transparent;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--ember);
+  cursor: pointer;
+}
+
+.breakit .bi-run:hover:not(:disabled) {
+  background: var(--ember);
+  color: var(--void);
+}
+
+.breakit .bi-run:disabled {
+  border-color: var(--line);
+  color: var(--faint);
+  cursor: not-allowed;
+}
+
+.breakit .bi-run:focus-visible {
+  outline: 2px solid var(--flame);
+  outline-offset: 2px;
+}
+
+@media (max-width: 860px) {
+  .breakit .bi-head {
+    flex-wrap: wrap;
+  }
+}

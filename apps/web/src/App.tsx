@@ -5,9 +5,10 @@ import { FieldCapture } from "./views/FieldCapture.tsx";
 import { MeshView } from "./views/MeshView.tsx";
 import { ProvenanceView } from "./views/ProvenanceView.tsx";
 import { SaathiView } from "./views/SaathiView.tsx";
+import { BreakItView } from "./views/BreakItView.tsx";
 import { api } from "./api.ts";
 
-type View = "mesh" | "operator" | "audit" | "field" | "saathi" | "provenance";
+type View = "mesh" | "operator" | "audit" | "field" | "saathi" | "breakit" | "provenance";
 
 const VIEWS: Array<{ id: View; label: string; owner: string }> = [
   /* Mesh first: it is the architecture claim, and a judge should see the four
@@ -20,6 +21,9 @@ const VIEWS: Array<{ id: View; label: string; owner: string }> = [
      municipalities, farms and waste generators. The four above it are for
      dispatchers and auditors. */
   { id: "saathi", label: "Saathi", owner: "core" },
+  /* Every guard this system has is invisible until someone tries to get past
+     it. Six attacks against the live API, and the refusals shown raw. */
+  { id: "breakit", label: "Break It", owner: "Harsh" },
   /* Last, and deliberately present: the receipts for everything the other
      four screens claim. */
   { id: "provenance", label: "Provenance", owner: "core" },
@@ -72,6 +76,7 @@ export const App = () => {
         {view === "audit" && <AuditConsole />}
         {view === "field" && <FieldCapture />}
         {view === "saathi" && <SaathiView />}
+        {view === "breakit" && <BreakItView />}
         {view === "provenance" && <ProvenanceView />}
       </main>
     </div>
