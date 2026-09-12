@@ -186,6 +186,28 @@ export const startAgentServer = async (opts: AgentServerOptions): Promise<void> 
   // contract via getAgentCard().
   app.use("/.well-known/agent-card.json", agentCardHandler({ agentCardProvider: handler }));
 
+  /* Refuse an unauthenticated agent call BEFORE the protocol handler sees it.
+   *
+   * The rule we set is "treat every other agent as untrusted by default", and
+   * we were minting and verifying a JWT and then doing nothing with the result:
+   * an unauthenticated POST /a2a ran the skill and returned a completed task.
+   * The token was decoration.
+   *
+   * Nothing external can reach an agent today - only 80/443 are open and Caddy
+   * proxies the gateway alone - but any container on the compose network can,
+   * and "not exposed" is not the same as "authenticated".
+   *
+   * A2A_ALLOW_ANONYMOUS=1 opts out for local poking. Never set in compose. */
+  const allowAnonymous = process.env["A2A_ALLOW_ANONYMOUS"] === "1";
+  app.use("/a2a", (req, res, next) => {
+    if (allowAnonymous || verifyAgentToken(req.headers.authorization)) return void next();
+    res.status(401).json({
+      jsonrpc: "2.0",
+      id: (req.body as { id?: unknown } | undefined)?.id ?? null,
+      error: { code: -32001, message: "unauthenticated: agent-to-agent calls require a bearer token" },
+    });
+  });
+
   // Mount with app.use for the same reason as the card handler above: the SDK
   // handler is a router that matches the request path itself, so app.post
   // nests it one level deep and every call 404s.
