@@ -54,6 +54,31 @@ type SignatureCheck =
   | { state: "ok"; issuer: string }
   | { state: "failed"; reason: string };
 
+/** What the PUBLISHED list says, which is a different question from what our database says. */
+type StatusCheck =
+  | { state: "idle" }
+  | { state: "checking" }
+  | { state: "ok"; revoked: boolean; index: number; listIssuer: string; origin: string; foreign: boolean }
+  | { state: "failed"; reason: string };
+
+/**
+ * Read one bit out of a Bitstring Status List.
+ *
+ * The list is a gzipped bitstring, base64url encoded. Bit 0 is the HIGH bit of
+ * byte 0 - get that backwards and every answer is wrong but plausible.
+ */
+const bitAt = (bytes: Uint8Array, index: number): number => {
+  const byte = bytes[index >>> 3];
+  if (byte === undefined) throw new Error(`index ${index} is past the end of the list`);
+  return (byte >>> (7 - (index & 7))) & 1;
+};
+
+/** gzip, in the browser, with no dependency. */
+const gunzip = async (data: Uint8Array): Promise<Uint8Array> => {
+  const stream = new Blob([data as BlobPart]).stream().pipeThrough(new DecompressionStream("gzip"));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+};
+
 export const AuditConsole = () => {
   const [chain, setChain] = useState<DecisionRecord[]>([]);
   const [pristine, setPristine] = useState<DecisionRecord[]>([]);
@@ -247,6 +272,7 @@ const CredentialPanel = () => {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [check, setCheck] = useState<SignatureCheck>({ state: "idle" });
+  const [listCheck, setListCheck] = useState<StatusCheck>({ state: "idle" });
   const [showRaw, setShowRaw] = useState(false);
 
   const credit: CreditRecord | null = trace?.credit ?? null;
@@ -263,6 +289,7 @@ const CredentialPanel = () => {
     setBusy(true);
     setErr("");
     setCheck({ state: "idle" });
+    setListCheck({ state: "idle" });
     try {
       setTrace((await api.trace(taskId.trim())) as TraceBundle);
     } catch (e) {
@@ -300,9 +327,88 @@ const CredentialPanel = () => {
     }
   };
 
+  /**
+   * Revocation, checked the way a holder would.
+   *
+   * Fetch the published list, verify the LIST's own signature against the
+   * issuer DID, then read the single bit this credential names. Our database
+   * is not consulted - that is the whole point. A holder has the credential
+   * and the list, and nothing else.
+   */
+  const checkStatusList = async () => {
+    if (!statusEntry) return;
+    setListCheck({ state: "checking" });
+    try {
+      const url = statusEntry["statusListCredential"];
+      if (!url) throw new Error("the credential names no status list");
+      const index = Number(statusEntry["statusListIndex"]);
+      if (!Number.isInteger(index) || index < 0) throw new Error(`credential names a bad index: ${String(statusEntry["statusListIndex"])}`);
+
+      /* Fetch exactly what the credential names. If it points somewhere else,
+         say so - a credential naming a list we cannot reach is not verifiable,
+         and quietly substituting a URL that works would verify a different
+         document than the one this credential commits to. */
+      const named = new URL(url, window.location.href);
+      const foreign = named.origin !== window.location.origin;
+
+      const res = await fetch(named.href).catch(() => null);
+      if (!res)
+        throw new Error(
+          foreign
+            ? `the list this credential names is at ${named.origin}, which this page cannot reach`
+            : "the published list could not be reached",
+        );
+      if (!res.ok) throw new Error(`the list this credential names answered HTTP ${res.status} (${named.origin})`);
+
+      const listJwt = (await res.text()).trim();
+
+      /* A 200 is not an answer. This exact path returned the SPA's index.html
+         with a 200 for a day, and anything that treats a success code as proof
+         would have shown a green tick over a web page. */
+      const looksLikeJwt = /^[\w-]+\.[\w-]+\.[\w-]+$/.test(listJwt);
+      if (!looksLikeJwt)
+        throw new Error(
+          foreign
+            ? `${named.origin} did not answer with a credential - the list this credential names is not served there`
+            : "the published list did not answer with a credential",
+        );
+
+      const [{ verifyCredential }, { Resolver }, keyDidResolver] = await Promise.all([
+        import("did-jwt-vc"),
+        import("did-resolver"),
+        import("key-did-resolver"),
+      ]);
+      type Registry = ConstructorParameters<typeof Resolver>[0];
+      const resolver = new Resolver(keyDidResolver.getResolver() as Registry);
+
+      // The list is signed too, so it cannot be swapped in transit.
+      const verified = await verifyCredential(listJwt, resolver);
+      if (!verified.verified) throw new Error("the published list did not verify");
+
+      const subject = (verified.verifiableCredential as { credentialSubject?: Record<string, unknown> })
+        .credentialSubject;
+      const encoded = String(subject?.["encodedList"] ?? "");
+      if (!encoded) throw new Error("the list carries no encodedList");
+
+      const packed = Uint8Array.from(atob(encoded.replace(/-/g, "+").replace(/_/g, "/")), (ch) => ch.charCodeAt(0));
+      const bits = await gunzip(packed);
+
+      setListCheck({
+        state: "ok",
+        revoked: bitAt(bits, index) === 1,
+        index,
+        listIssuer: String(verified.issuer),
+        origin: named.origin,
+        foreign,
+      });
+    } catch (e) {
+      setListCheck({ state: "failed", reason: e instanceof Error ? e.message : String(e) });
+    }
+  };
+
   const subject = (decoded?.payload["vc"] as { credentialSubject?: Record<string, Record<string, unknown>> } | undefined)
     ?.credentialSubject;
-  const status = (decoded?.payload["vc"] as { credentialStatus?: Record<string, string> } | undefined)
+  const statusEntry = (decoded?.payload["vc"] as { credentialStatus?: Record<string, string> } | undefined)
     ?.credentialStatus;
 
   return (
@@ -373,12 +479,12 @@ const CredentialPanel = () => {
                   </dd>
                 </>
               ) : null}
-              {status ? (
+              {statusEntry ? (
                 <>
                   <dt>status list</dt>
                   <dd>
-                    index {status["statusListIndex"]} of{" "}
-                    <a href={status["statusListCredential"]} target="_blank" rel="noreferrer">
+                    index {statusEntry["statusListIndex"]} of{" "}
+                    <a href={statusEntry["statusListCredential"]} target="_blank" rel="noreferrer">
                       the published list
                     </a>
                   </dd>
@@ -390,13 +496,35 @@ const CredentialPanel = () => {
               <button type="button" className="primary" onClick={() => void verifySignature()}>
                 Verify signature
               </button>
+              <button type="button" onClick={() => void checkStatusList()} disabled={!statusEntry}>
+                Check the published list
+              </button>
               <button type="button" onClick={() => setShowRaw((on) => !on)}>
                 {showRaw ? "Hide claims" : "Show decoded claims"}
               </button>
               {check.state === "ok" ? <span className="pill ok">signature valid</span> : null}
               {check.state === "failed" ? <span className="pill fail">not verified</span> : null}
               {check.state === "checking" ? <span className="muted">resolving issuer DID...</span> : null}
+              {listCheck.state === "ok" ? (
+                <span className={listCheck.revoked ? "pill retired" : "pill ok"}>
+                  {listCheck.revoked ? "revoked per the list" : "live per the list"}
+                </span>
+              ) : null}
+              {listCheck.state === "checking" ? <span className="muted">fetching the published list...</span> : null}
             </div>
+
+            {listCheck.state === "ok" ? (
+              <p className="muted" style={{ marginTop: 8 }}>
+                Bit {listCheck.index} of the list at {listCheck.origin}, read in this browser. Signed by{" "}
+                {listCheck.listIssuer} and verified before the bit was read — our database was not asked.
+                {listCheck.foreign ? " This credential names a list on another origin; it was fetched from there, not from here." : ""}
+              </p>
+            ) : null}
+            {listCheck.state === "failed" ? (
+              <p className="err" style={{ marginTop: 8 }}>
+                Could not check the published list: {listCheck.reason}
+              </p>
+            ) : null}
 
             {check.state === "ok" ? (
               <p className="muted" style={{ marginTop: 8 }}>
