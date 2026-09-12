@@ -61,6 +61,17 @@ export const SaathiView = ({ ask = liveAsk }: { ask?: Ask }) => {
   const [lang, setLang] = useState<Lang>(() => detectLang());
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState("");
+  /* Who is asking, kept on the device rather than asked for every sentence.
+     A ward clerk says who they are once; a sentence is the wrong place to
+     assert an identity, and parsing one out of prose would let anyone retire
+     anyone's credit by typing the right name. */
+  const [identity, setIdentity] = useState<string>(() => {
+    try {
+      return localStorage.getItem("charkha.saathi.identity") ?? "";
+    } catch {
+      return "";
+    }
+  });
   const [busy, setBusy] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -78,7 +89,7 @@ export const SaathiView = ({ ask = liveAsk }: { ask?: Ask }) => {
       if (!confirm) setTurns((t) => [...t, { who: "user", text: utterance }]);
       setDraft("");
       try {
-        const answer = await ask(utterance, lang, confirm);
+        const answer = await ask(utterance, lang, confirm, identity.trim() || undefined);
         /* Keep the sentence with its answer. Confirming has to re-send the
            original utterance, and reaching backwards through the transcript to
            find it breaks the moment anything else is appended in between. */
@@ -89,7 +100,7 @@ export const SaathiView = ({ ask = liveAsk }: { ask?: Ask }) => {
         setBusy(false);
       }
     },
-    [ask, lang, busy],
+    [ask, lang, busy, identity],
   );
 
   /* Only the newest proposal is actionable. Leaving an older one live means a
@@ -123,6 +134,23 @@ export const SaathiView = ({ ask = liveAsk }: { ask?: Ask }) => {
           </button>
         ))}
       </div>
+
+      <label className="sa-identity">
+        <span>You are</span>
+        <input
+          value={identity}
+          onChange={(e) => {
+            setIdentity(e.target.value);
+            try {
+              localStorage.setItem("charkha.saathi.identity", e.target.value);
+            } catch {
+              /* A private window still works; it just forgets between visits. */
+            }
+          }}
+          placeholder="Ward 7, Ludhiana Municipal Corporation"
+          aria-label="Who you are"
+        />
+      </label>
 
       <div className="sa-thread">
         {turns.length === 0 ? (

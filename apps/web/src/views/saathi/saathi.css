@@ -219,3 +219,24 @@
     padding: 12px;
   }
 }
+
+/* ---------- who is asking ---------- */
+
+/* Declaring waste and retiring a credit both need to know who you are, and
+   neither can be read out of a sentence - a sentence is the wrong place to
+   assert an identity. Asked once, kept on the device. */
+.saathi .sa-identity {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.saathi .sa-identity input {
+  flex: 1;
+  min-width: 0;
+  max-width: 420px;
+  font-size: 13.5px;
+  padding: 8px 11px;
+}

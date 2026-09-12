@@ -17,13 +17,14 @@ export type Ask = (
   utterance: string,
   lang: AssistantLang,
   confirm?: string,
+  identity?: string,
 ) => Promise<AssistantAnswerOutput>;
 
-export const ask: Ask = async (utterance, lang, confirm) => {
+export const ask: Ask = async (utterance, lang, confirm, identity) => {
   const res = await fetch("/api/saathi", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ utterance, lang, confirm }),
+    body: JSON.stringify({ utterance, lang, confirm, identity }),
   });
 
   const body: unknown = await res.json().catch(() => null);

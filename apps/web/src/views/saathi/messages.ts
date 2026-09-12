@@ -60,6 +60,40 @@ const EN: Dict = {
     "Done — {matched} lots matched, {unplaced} could not be placed within {radiusKm} km.",
   "assistant.matching.none":
     "Nothing matched. All {unplaced} lots are further than {radiusKm} km from a unit that accepts them. That is the catchment limit, not a failure — try a wider radius.",
+  "assistant.credit.need_id":
+    "Which credit? Give me its id, like crd_1234abcd.",
+  "assistant.credit.malformed_id":
+    "{creditId} is not a credit id we would have issued. They look like crd_ followed by letters and digits.",
+  "assistant.credit.not_found":
+    "I could not find a credit with the id {creditId}.",
+  "assistant.credit.status":
+    "{creditId} is {status}, worth {tonnes} tCO2e, held by {holder}. Issued {issuedAt}.",
+  "assistant.credit.status_not_verifiable":
+    "{creditId} is {status}, worth {tonnes} tCO2e, held by {holder} (issued {issuedAt}) - but I cannot check whether it has been retired. It points at {listHost} for that, which cannot be reached from here ({reason}). The signature on the credit is fine; it is the revocation list that is unreachable.",
+  "assistant.credit.retire_need_id":
+    "Which credit should I retire? Give me its id.",
+  "assistant.credit.retire_need_holder":
+    "Before I retire {creditId} I need to know who you are - only the holder can retire a credit.",
+  "assistant.credit.retire_summary":
+    "Retire {creditId} as {retiredBy}? This is permanent - a retired credit cannot be brought back or resold.",
+  "assistant.credit.retired":
+    "{creditId} is retired, as {retiredBy}.",
+  "assistant.credit.retired_detail":
+    "{creditId} is now {status} - {tonnes} tCO2e, held by {holder}. The published list will show it as revoked.",
+  "assistant.declare.need_feedstock":
+    "What kind of waste is it? Paddy straw, wheat straw, sugarcane trash, maize stover, or mixed.",
+  "assistant.declare.need_tonnes":
+    "Roughly how many tonnes?",
+  "assistant.declare.need_place":
+    "Which district or village is it in?",
+  "assistant.declare.need_declared_by":
+    "And who is declaring it? A ward, a panchayat or a company name - it is recorded, and only they can claim the credit.",
+  "assistant.declare.unknown_district":
+    "I do not cover {district} yet, so I cannot record waste there. We work across the Punjab and Haryana belt.",
+  "assistant.declare.confirm":
+    "Record {tonnes} t of {feedstock} in {district}, declared by {declaredBy}? It will be marked as declared, not detected by satellite.",
+  "assistant.declare.done":
+    "Recorded: {tonnes} t of {feedstock} in {district}, as {lotId}. It is now listed for collection.",
 };
 
 const HI: Dict = {
@@ -89,6 +123,40 @@ const HI: Dict = {
   "assistant.matching.done": "हो गया — {matched} लॉट मैच हुए, {unplaced} को {radiusKm} किमी में जगह नहीं मिली।",
   "assistant.matching.none":
     "कुछ मैच नहीं हुआ। सभी {unplaced} लॉट उन्हें स्वीकार करने वाली यूनिट से {radiusKm} किमी से दूर हैं। यह दायरे की सीमा है, खराबी नहीं — बड़ा दायरा आज़माएँ।",
+  "assistant.credit.need_id":
+    "कौन-सा क्रेडिट? उसकी आईडी बताइए, जैसे crd_1234abcd।",
+  "assistant.credit.malformed_id":
+    "{creditId} हमारे जारी किए क्रेडिट की आईडी नहीं लगती। वे crd_ से शुरू होती हैं।",
+  "assistant.credit.not_found":
+    "{creditId} आईडी वाला कोई क्रेडिट नहीं मिला।",
+  "assistant.credit.status":
+    "{creditId} अभी {status} है, {tonnes} tCO2e का, धारक {holder}। जारी {issuedAt}।",
+  "assistant.credit.status_not_verifiable":
+    "{creditId} {status} है, {tonnes} tCO2e, धारक {holder} (जारी {issuedAt}) - पर यह जाँचा नहीं जा सकता कि वह रिटायर हुआ या नहीं। वह इसके लिए {listHost} बताता है, जो यहाँ से पहुँच में नहीं ({reason})। क्रेडिट का हस्ताक्षर ठीक है; सूची तक पहुँच नहीं है।",
+  "assistant.credit.retire_need_id":
+    "कौन-सा क्रेडिट रिटायर करूँ? उसकी आईडी बताइए।",
+  "assistant.credit.retire_need_holder":
+    "{creditId} रिटायर करने से पहले जानना होगा कि आप कौन हैं - केवल धारक ही रिटायर कर सकता है।",
+  "assistant.credit.retire_summary":
+    "{creditId} को {retiredBy} के रूप में रिटायर करें? यह स्थायी है - रिटायर क्रेडिट वापस नहीं आता।",
+  "assistant.credit.retired":
+    "{creditId} रिटायर हो गया, {retiredBy} के रूप में।",
+  "assistant.credit.retired_detail":
+    "{creditId} अब {status} है - {tonnes} tCO2e, धारक {holder}। प्रकाशित सूची में यह रद्द दिखेगा।",
+  "assistant.declare.need_feedstock":
+    "किस तरह का कचरा है? धान की पराली, गेहूँ का भूसा, गन्ने की पत्ती, मक्के का डंठल, या मिला-जुला।",
+  "assistant.declare.need_tonnes":
+    "लगभग कितने टन?",
+  "assistant.declare.need_place":
+    "यह किस ज़िले या गाँव में है?",
+  "assistant.declare.need_declared_by":
+    "और यह कौन दर्ज कर रहा है? वार्ड, पंचायत या कंपनी का नाम - यह दर्ज होता है, और क्रेडिट उन्हीं का होगा।",
+  "assistant.declare.unknown_district":
+    "{district} अभी हमारे क्षेत्र में नहीं है, इसलिए वहाँ कचरा दर्ज नहीं कर सकता। हम पंजाब-हरियाणा पट्टी में काम करते हैं।",
+  "assistant.declare.confirm":
+    "{district} में {tonnes} टन {feedstock} दर्ज करें, {declaredBy} द्वारा घोषित? यह घोषित के रूप में दर्ज होगा, सैटेलाइट से पाया हुआ नहीं।",
+  "assistant.declare.done":
+    "दर्ज हुआ: {district} में {tonnes} टन {feedstock}, {lotId} के रूप में। अब यह संग्रह के लिए सूचीबद्ध है।",
 };
 
 const PA: Dict = {
@@ -118,6 +186,40 @@ const PA: Dict = {
   "assistant.matching.done": "ਹੋ ਗਿਆ — {matched} ਲਾਟਾਂ ਮੈਚ ਹੋਈਆਂ, {unplaced} ਨੂੰ {radiusKm} ਕਿਲੋਮੀਟਰ ਵਿੱਚ ਥਾਂ ਨਹੀਂ ਮਿਲੀ।",
   "assistant.matching.none":
     "ਕੁਝ ਮੈਚ ਨਹੀਂ ਹੋਇਆ। ਸਾਰੀਆਂ {unplaced} ਲਾਟਾਂ ਉਹਨਾਂ ਨੂੰ ਸਵੀਕਾਰ ਕਰਨ ਵਾਲੀ ਯੂਨਿਟ ਤੋਂ {radiusKm} ਕਿਲੋਮੀਟਰ ਤੋਂ ਦੂਰ ਹਨ। ਇਹ ਦਾਇਰੇ ਦੀ ਹੱਦ ਹੈ, ਖਰਾਬੀ ਨਹੀਂ — ਵੱਡਾ ਦਾਇਰਾ ਅਜ਼ਮਾਓ।",
+  "assistant.credit.need_id":
+    "ਕਿਹੜਾ ਕ੍ਰੈਡਿਟ? ਉਸ ਦੀ ਆਈਡੀ ਦੱਸੋ, ਜਿਵੇਂ crd_1234abcd।",
+  "assistant.credit.malformed_id":
+    "{creditId} ਸਾਡੇ ਜਾਰੀ ਕੀਤੇ ਕ੍ਰੈਡਿਟ ਦੀ ਆਈਡੀ ਨਹੀਂ ਲੱਗਦੀ। ਉਹ crd_ ਨਾਲ ਸ਼ੁਰੂ ਹੁੰਦੀਆਂ ਹਨ।",
+  "assistant.credit.not_found":
+    "{creditId} ਆਈਡੀ ਵਾਲਾ ਕੋਈ ਕ੍ਰੈਡਿਟ ਨਹੀਂ ਮਿਲਿਆ।",
+  "assistant.credit.status":
+    "{creditId} ਹੁਣ {status} ਹੈ, {tonnes} tCO2e ਦਾ, ਧਾਰਕ {holder}। ਜਾਰੀ {issuedAt}।",
+  "assistant.credit.status_not_verifiable":
+    "{creditId} {status} ਹੈ, {tonnes} tCO2e, ਧਾਰਕ {holder} (ਜਾਰੀ {issuedAt}) - ਪਰ ਇਹ ਜਾਂਚਿਆ ਨਹੀਂ ਜਾ ਸਕਦਾ ਕਿ ਉਹ ਰਿਟਾਇਰ ਹੋਇਆ ਜਾਂ ਨਹੀਂ। ਉਹ ਇਸ ਲਈ {listHost} ਦੱਸਦਾ ਹੈ, ਜੋ ਇੱਥੋਂ ਪਹੁੰਚ ਵਿੱਚ ਨਹੀਂ ({reason})। ਕ੍ਰੈਡਿਟ ਦਾ ਦਸਤਖਤ ਠੀਕ ਹੈ; ਸੂਚੀ ਤੱਕ ਪਹੁੰਚ ਨਹੀਂ।",
+  "assistant.credit.retire_need_id":
+    "ਕਿਹੜਾ ਕ੍ਰੈਡਿਟ ਰਿਟਾਇਰ ਕਰਾਂ? ਉਸ ਦੀ ਆਈਡੀ ਦੱਸੋ।",
+  "assistant.credit.retire_need_holder":
+    "{creditId} ਰਿਟਾਇਰ ਕਰਨ ਤੋਂ ਪਹਿਲਾਂ ਜਾਣਨਾ ਪਵੇਗਾ ਕਿ ਤੁਸੀਂ ਕੌਣ ਹੋ - ਸਿਰਫ਼ ਧਾਰਕ ਹੀ ਰਿਟਾਇਰ ਕਰ ਸਕਦਾ ਹੈ।",
+  "assistant.credit.retire_summary":
+    "{creditId} ਨੂੰ {retiredBy} ਵਜੋਂ ਰਿਟਾਇਰ ਕਰਾਂ? ਇਹ ਪੱਕਾ ਹੈ - ਰਿਟਾਇਰ ਕ੍ਰੈਡਿਟ ਵਾਪਸ ਨਹੀਂ ਆਉਂਦਾ।",
+  "assistant.credit.retired":
+    "{creditId} ਰਿਟਾਇਰ ਹੋ ਗਿਆ, {retiredBy} ਵਜੋਂ।",
+  "assistant.credit.retired_detail":
+    "{creditId} ਹੁਣ {status} ਹੈ - {tonnes} tCO2e, ਧਾਰਕ {holder}। ਪ੍ਰਕਾਸ਼ਿਤ ਸੂਚੀ ਵਿੱਚ ਇਹ ਰੱਦ ਦਿਖੇਗਾ।",
+  "assistant.declare.need_feedstock":
+    "ਕਿਸ ਤਰ੍ਹਾਂ ਦਾ ਕੂੜਾ ਹੈ? ਝੋਨੇ ਦੀ ਪਰਾਲੀ, ਕਣਕ ਦਾ ਨਾੜ, ਗੰਨੇ ਦੀ ਪੱਤੀ, ਮੱਕੀ ਦਾ ਡੰਡਾ, ਜਾਂ ਰਲਿਆ-ਮਿਲਿਆ।",
+  "assistant.declare.need_tonnes":
+    "ਲਗਭਗ ਕਿੰਨੇ ਟਨ?",
+  "assistant.declare.need_place":
+    "ਇਹ ਕਿਹੜੇ ਜ਼ਿਲ੍ਹੇ ਜਾਂ ਪਿੰਡ ਵਿੱਚ ਹੈ?",
+  "assistant.declare.need_declared_by":
+    "ਅਤੇ ਇਹ ਕੌਣ ਦਰਜ ਕਰ ਰਿਹਾ ਹੈ? ਵਾਰਡ, ਪੰਚਾਇਤ ਜਾਂ ਕੰਪਨੀ ਦਾ ਨਾਂ - ਇਹ ਦਰਜ ਹੁੰਦਾ ਹੈ, ਅਤੇ ਕ੍ਰੈਡਿਟ ਉਹਨਾਂ ਦਾ ਹੀ ਹੋਵੇਗਾ।",
+  "assistant.declare.unknown_district":
+    "{district} ਹਾਲੇ ਸਾਡੇ ਖੇਤਰ ਵਿੱਚ ਨਹੀਂ ਹੈ, ਇਸ ਲਈ ਉੱਥੇ ਕੂੜਾ ਦਰਜ ਨਹੀਂ ਕਰ ਸਕਦਾ। ਅਸੀਂ ਪੰਜਾਬ-ਹਰਿਆਣਾ ਪੱਟੀ ਵਿੱਚ ਕੰਮ ਕਰਦੇ ਹਾਂ।",
+  "assistant.declare.confirm":
+    "{district} ਵਿੱਚ {tonnes} ਟਨ {feedstock} ਦਰਜ ਕਰਾਂ, {declaredBy} ਵੱਲੋਂ ਘੋਸ਼ਿਤ? ਇਹ ਘੋਸ਼ਿਤ ਵਜੋਂ ਦਰਜ ਹੋਵੇਗਾ, ਸੈਟੇਲਾਈਟ ਤੋਂ ਮਿਲਿਆ ਨਹੀਂ।",
+  "assistant.declare.done":
+    "ਦਰਜ ਹੋ ਗਿਆ: {district} ਵਿੱਚ {tonnes} ਟਨ {feedstock}, {lotId} ਵਜੋਂ। ਹੁਣ ਇਹ ਇਕੱਠ ਲਈ ਸੂਚੀਬੱਧ ਹੈ।",
 };
 
 const GU: Dict = {
@@ -147,6 +249,40 @@ const GU: Dict = {
   "assistant.matching.done": "થઈ ગયું — {matched} લોટ મેચ થયા, {unplaced} ને {radiusKm} કિમીમાં જગ્યા મળી નહીં.",
   "assistant.matching.none":
     "કશું મેચ થયું નહીં. બધા {unplaced} લોટ તેમને સ્વીકારતી યુનિટથી {radiusKm} કિમીથી દૂર છે. આ વિસ્તારની મર્યાદા છે, ખામી નહીં — મોટો વિસ્તાર અજમાવો.",
+  "assistant.credit.need_id":
+    "કયું ક્રેડિટ? તેની આઈડી આપો, જેમ કે crd_1234abcd.",
+  "assistant.credit.malformed_id":
+    "{creditId} અમે આપેલા ક્રેડિટની આઈડી નથી લાગતી. તે crd_ થી શરૂ થાય છે.",
+  "assistant.credit.not_found":
+    "{creditId} આઈડી વાળું કોઈ ક્રેડિટ મળ્યું નહીં.",
+  "assistant.credit.status":
+    "{creditId} અત્યારે {status} છે, {tonnes} tCO2e નું, ધારક {holder}. જારી {issuedAt}.",
+  "assistant.credit.status_not_verifiable":
+    "{creditId} {status} છે, {tonnes} tCO2e, ધારક {holder} (જારી {issuedAt}) - પણ તે રિટાયર થયું કે નહીં તે તપાસી શકાતું નથી. તે માટે તે {listHost} બતાવે છે, જે અહીંથી પહોંચમાં નથી ({reason}). ક્રેડિટની સહી બરાબર છે; યાદી સુધી પહોંચ નથી.",
+  "assistant.credit.retire_need_id":
+    "કયું ક્રેડિટ રિટાયર કરું? તેની આઈડી આપો.",
+  "assistant.credit.retire_need_holder":
+    "{creditId} રિટાયર કરતાં પહેલાં જાણવું પડશે કે તમે કોણ છો - ફક્ત ધારક જ રિટાયર કરી શકે.",
+  "assistant.credit.retire_summary":
+    "{creditId} ને {retiredBy} તરીકે રિટાયર કરું? આ કાયમી છે - રિટાયર ક્રેડિટ પાછું આવતું નથી.",
+  "assistant.credit.retired":
+    "{creditId} રિટાયર થઈ ગયું, {retiredBy} તરીકે.",
+  "assistant.credit.retired_detail":
+    "{creditId} હવે {status} છે - {tonnes} tCO2e, ધારક {holder}. પ્રકાશિત યાદીમાં તે રદ દેખાશે.",
+  "assistant.declare.need_feedstock":
+    "કયા પ્રકારનો કચરો છે? ડાંગરની પરાળ, ઘઉંનું પરાળ, શેરડીના પાન, મકાઈનો ડાંખળો, કે મિશ્ર.",
+  "assistant.declare.need_tonnes":
+    "આશરે કેટલા ટન?",
+  "assistant.declare.need_place":
+    "તે કયા જિલ્લા કે ગામમાં છે?",
+  "assistant.declare.need_declared_by":
+    "અને આ કોણ નોંધાવે છે? વોર્ડ, પંચાયત કે કંપનીનું નામ - તે નોંધાય છે, અને ક્રેડિટ તેમનું જ થશે.",
+  "assistant.declare.unknown_district":
+    "{district} હજુ અમારા વિસ્તારમાં નથી, તેથી ત્યાં કચરો નોંધી શકતો નથી. અમે પંજાબ-હરિયાણા પટ્ટીમાં કામ કરીએ છીએ.",
+  "assistant.declare.confirm":
+    "{district} માં {tonnes} ટન {feedstock} નોંધું, {declaredBy} દ્વારા જાહેર? તે જાહેર તરીકે નોંધાશે, સેટેલાઇટથી મળેલું નહીં.",
+  "assistant.declare.done":
+    "નોંધાયું: {district} માં {tonnes} ટન {feedstock}, {lotId} તરીકે. હવે તે સંગ્રહ માટે યાદીમાં છે.",
 };
 
 const DICTS: Record<Lang, Dict> = { en: EN, hi: HI, pa: PA, gu: GU };

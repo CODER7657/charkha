@@ -1,4 +1,7 @@
 import { describe, it, expect } from "vitest";
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { LANGUAGES, type Lang } from "../../i18n.ts";
 import { KEYS, fill, renderMessage } from "./messages.ts";
 
@@ -9,6 +12,7 @@ import { KEYS, fill, renderMessage } from "./messages.ts";
  * verifier's English `reasons` survived a four-language UI for days.
  * ------------------------------------------------------------------ */
 
+const here = path.dirname(fileURLToPath(import.meta.url));
 const LANGS = LANGUAGES.map((l) => l.code as Lang);
 
 /** Every parameter the English template asks for, so the others can be checked against it. */
@@ -103,5 +107,65 @@ describe("a key with no translation degrades usefully", () => {
 
   it("returns the key itself only when nothing knows it at all", () => {
     expect(renderMessage({ key: "assistant.nonexistent", params: {} }, "en")).toBe("assistant.nonexistent");
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * Every key the agent can emit must be a key the client can render.
+ *
+ * Seventeen keys shipped emitted-but-untranslated: two people correctly
+ * returned `{ key, params }` from their planning modules, and messages.ts is
+ * mine and never gained their keys. Every one of them would have rendered as
+ * the literal string `assistant.declare.need_tonnes` on a farmer's phone - in
+ * all four languages, including English.
+ *
+ * Nothing caught it. The dictionary tests above check the four dictionaries
+ * agree with EACH OTHER, which they did - they were consistently incomplete.
+ * The agent's own tests assert on keys, which is right, and never render one.
+ * The gap was exactly between two files owned by different people, which is
+ * where this project keeps finding defects.
+ *
+ * So this reads the agent source and holds the dictionary to it.
+ * ------------------------------------------------------------------ */
+describe("the dictionary covers what the agent emits", () => {
+  const agentSrc = path.resolve(here, "../../../../../agents/assistant/src");
+
+  const sources = (dir: string): string[] =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory()
+        ? sources(path.join(dir, e.name))
+        : e.name.endsWith(".ts") && !e.name.endsWith(".test.ts")
+          ? [path.join(dir, e.name)]
+          : [],
+    );
+
+  const emitted = (): string[] => {
+    const found = new Set<string>();
+    for (const file of sources(agentSrc)) {
+      for (const m of readFileSync(file, "utf8").matchAll(/"(assistant\.[a-z_.]+)"/g)) {
+        found.add(m[1]!);
+      }
+    }
+    return [...found].sort();
+  };
+
+  it("finds the agent source it is supposed to be reading", () => {
+    // A glob that matches nothing is a green test that checks nothing.
+    expect(sources(agentSrc).length).toBeGreaterThan(4);
+    expect(emitted().length).toBeGreaterThan(20);
+  });
+
+  it("has an English entry for every key the agent can return", () => {
+    const missing = emitted().filter((key) => !KEYS.includes(key));
+    expect(missing, "emitted by an agent, absent from messages.ts").toEqual([]);
+  });
+
+  /* The other direction is a warning, not a failure: a key may legitimately
+     outlive its last caller for a release. It is listed so it can be removed
+     deliberately rather than accumulating. */
+  it("reports dictionary keys nothing emits any more", () => {
+    const orphans = KEYS.filter((key) => !emitted().includes(key));
+    if (orphans.length) console.warn(`  messages.ts keys with no emitter: ${orphans.join(", ")}`);
+    expect(Array.isArray(orphans)).toBe(true);
   });
 });

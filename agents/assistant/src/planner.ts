@@ -4,6 +4,7 @@ import { checkConfirmation, mintConfirmation } from "./confirm.ts";
 import { msg, type Plan, type PlannedCall, type Planner } from "./plan/types.ts";
 import { planImpactSummary, planLotStatus } from "./plan/lots.ts";
 import { planRunMatching } from "./plan/matching.ts";
+import { planDeclare } from "./plan/declare.ts";
 import { planCreditStatus, planRetire } from "./plan/credits.ts";
 
 /* ------------------------------------------------------------------ *
@@ -37,7 +38,7 @@ export const PLANNERS: PlannerTable = {
   run_matching: planRunMatching,
   credit_status: planCreditStatus,
   retire_credit: planRetire,
-  // declare_waste  -> plan/declare.ts   (Harsh, #63)
+  declare_waste: planDeclare,
 };
 
 export type PlannerDeps = {
