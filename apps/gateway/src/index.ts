@@ -148,7 +148,15 @@ app.get("/api/provenance", async () => {
     feed: {
       source: process.env["FIRMS_SOURCE"] ?? "VIIRS_NOAA20_NRT",
       bbox: process.env["FIRMS_BBOX"] ?? null,
-      dayRange: Number(process.env["FIRMS_DAY_RANGE"] ?? 2),
+      /* No fallback number. This read `?? 2` while the producer's own
+         DEFAULT_DAY_RANGE is 5, so with the variable unset the Provenance
+         screen would state a five-day methodology as two - a published number
+         contradicting what ingest actually ran, which rule 7 exists to
+         prevent. The gateway cannot import an agent to borrow the real
+         default without inverting the layering, and a second copy of the
+         constant here is the same drift with extra steps. So: report what is
+         set, and say plainly when nothing is. Found by Harsh in #48. */
+      dayRange: process.env["FIRMS_DAY_RANGE"] ? Number(process.env["FIRMS_DAY_RANGE"]) : null,
       note: "NASA FIRMS, read-only. The only outbound request this system makes.",
     },
   };
