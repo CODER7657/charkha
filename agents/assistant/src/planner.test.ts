@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { AgentRequestError } from "@charkha/a2a";
 import type { AssistantSlots, ResidueLot } from "@charkha/core";
-import { makePlanner, type PlannerTable, type Resolved } from "./planner.ts";
+import { makePlanner, PLANNERS as WIRED, type PlannerTable, type Resolved } from "./planner.ts";
 import type { PlannedCall } from "./plan/types.ts";
 import { makeAnswer, MIN_CONFIDENCE, unresolved } from "./answer.ts";
 import { planLotStatus, planImpactSummary } from "./plan/lots.ts";
@@ -326,5 +326,124 @@ describe("a weak match never reaches a planner", () => {
     const out = await run({ utterance: "retire everything", lang: "en", confirm: undefined }, ctx);
     expect(out.intent).toBe("unknown");
     expect(out.performed).toBe(false);
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * The credit intents, through the table the agent actually uses.
+ *
+ * Not a local PLANNERS built for the test - `WIRED` is the real export, so
+ * if the two lines are ever removed these fail rather than quietly passing
+ * against a stand-in. Every assertion is on keys and structure.
+ * ------------------------------------------------------------------ */
+const CREDIT = {
+  creditId: "crd_00000000000000000001",
+  matchId: "mat_1",
+  evidenceId: "evi_1",
+  netTonnesCo2e: 2.483,
+  breakdown: { grossSequestrationTco2e: 2.6, transportDebitTco2e: 0.05, processDebitTco2e: 0.07 },
+  issuedAt: "2026-09-12T09:00:00.000Z",
+  status: "issued" as const,
+  credentialJwt: `${Buffer.from(JSON.stringify({ alg: "EdDSA" })).toString("base64url")}.${Buffer.from(
+    JSON.stringify({ vc: { credentialStatus: { statusListCredential: "https://charkha.example.com/status/credits" } } }),
+  ).toString("base64url")}.c2ln`,
+  credentialId: "urn:charkha:credential:crd_00000000000000000001",
+  issuerDid: "did:key:z6MkExample",
+  holder: "prod_sangrur",
+  statusListIndex: 11,
+};
+
+describe("the credit intents are wired", () => {
+  beforeEach(() => {
+    process.env["A2A_JWT_SECRET"] = "test-secret";
+    process.env["PUBLIC_BASE_URL"] = "https://charkha.example.com";
+  });
+  afterEach(() => {
+    delete process.env["A2A_JWT_SECRET"];
+    delete process.env["PUBLIC_BASE_URL"];
+  });
+
+  it("answers credit_status by reading, and only reading", async () => {
+    const call = vi.fn(async () => ({ taskId: "t_1", output: { credit: CREDIT } }));
+    const plan = makePlanner({ planners: WIRED, call, now: () => 1_000_000 });
+
+    const out = await plan(
+      resolvedAs({ intent: "credit_status", slots: { creditId: CREDIT.creditId } }),
+      undefined,
+      () => {},
+    );
+
+    expect(out.reply.key).toBe("assistant.credit.status");
+    expect(out.reply.params).toMatchObject({ creditId: CREDIT.creditId, tonnes: 2.483, holder: "prod_sangrur" });
+    expect(out.hops.map((h) => h.skill)).toEqual(["lookupCredit"]);
+    expect(out.performed).toBe(false);
+    expect(out.confirmation).toBeNull();
+  });
+
+  it("tells someone a credential cannot be checked, without calling it invalid", async () => {
+    /* The pre-#47 credentials on the deployed host name a docker-internal
+       host. They verify. They are not verifiable, and a person is told which. */
+    const stale = {
+      ...CREDIT,
+      credentialJwt: `${Buffer.from(JSON.stringify({ alg: "EdDSA" })).toString("base64url")}.${Buffer.from(
+        JSON.stringify({ vc: { credentialStatus: { statusListCredential: "http://registry:4004/status/credits" } } }),
+      ).toString("base64url")}.c2ln`,
+    };
+    const call = vi.fn(async () => ({ taskId: "t_1", output: { credit: stale } }));
+    const plan = makePlanner({ planners: WIRED, call, now: () => 1_000_000 });
+
+    const out = await plan(
+      resolvedAs({ intent: "credit_status", slots: { creditId: CREDIT.creditId } }),
+      undefined,
+      () => {},
+    );
+
+    expect(out.reply.key).toBe("assistant.credit.status_not_verifiable");
+    expect(out.reply.params["reason"]).toBe("unreachable_list");
+    /* Still says what it is. */
+    expect(out.reply.params["status"]).toBe("issued");
+  });
+
+  it("proposes a retirement without calling anything, then performs it on the token", async () => {
+    const call = vi.fn(async () => ({ taskId: "t_2", output: { credit: { ...CREDIT, status: "retired" as const } } }));
+    const plan = makePlanner({ planners: WIRED, call, now: () => 1_000_000 });
+    const resolved = resolvedAs({
+      intent: "retire_credit",
+      slots: { creditId: CREDIT.creditId, holder: CREDIT.holder },
+    });
+
+    const proposed = await plan(resolved, undefined, () => {});
+    expect(proposed.reply.key).toBe("assistant.credit.retire_summary");
+    expect(proposed.performed).toBe(false);
+    expect(proposed.confirmation).not.toBeNull();
+    /* The proposal called nothing at all. */
+    expect(call).not.toHaveBeenCalled();
+    expect(proposed.hops).toEqual([]);
+
+    const done = await plan(resolved, proposed.confirmation!.token, () => {});
+    expect(done.performed).toBe(true);
+    expect(done.reply.key).toBe("assistant.credit.retired_detail");
+    expect(done.reply.params).toMatchObject({ tonnes: 2.483, status: "retired" });
+    expect(done.hops.map((h) => h.skill)).toEqual(["retireCredit"]);
+  });
+
+  it("will not spend a confirmation issued for a different credit", async () => {
+    const call = vi.fn(async () => ({ taskId: "t_3", output: { credit: CREDIT } }));
+    const plan = makePlanner({ planners: WIRED, call, now: () => 1_000_000 });
+
+    const forOther = mintConfirmation(
+      "retire_credit",
+      { creditId: "crd_00000000000000000002", holder: CREDIT.holder },
+      1_000_000,
+    );
+    const out = await plan(
+      resolvedAs({ intent: "retire_credit", slots: { creditId: CREDIT.creditId, holder: CREDIT.holder } }),
+      forOther,
+      () => {},
+    );
+
+    expect(out.performed).toBe(false);
+    expect(out.reply.key).toBe("assistant.confirm.mismatch");
+    expect(call).not.toHaveBeenCalled();
   });
 });
