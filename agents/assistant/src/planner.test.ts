@@ -447,3 +447,52 @@ describe("the credit intents are wired", () => {
     expect(call).not.toHaveBeenCalled();
   });
 });
+
+/* ------------------------------------------------------------------ *
+ * The gate has to fail CLOSED.
+ *
+ * `undefined < 0.5` is false, so a confidence that never arrived used to pass
+ * the gate rather than fail it, and an unresolved sentence would have gone
+ * straight to a planner. That is exactly what a resolver returning a Promise
+ * produces - which is how Hem found it while making resolve() async for ONNX.
+ * ------------------------------------------------------------------ */
+describe("a resolver that misbehaves cannot open the gate", () => {
+  beforeEach(() => {
+    process.env["A2A_JWT_SECRET"] = "test-secret";
+  });
+  afterEach(() => {
+    delete process.env["A2A_JWT_SECRET"];
+  });
+
+  it("awaits an async resolver rather than gating on a Promise", async () => {
+    const { plan } = setup();
+    const run = makeAnswer({
+      resolve: async () => ({ intent: "lot_status" as const, slots: { district: "Ludhiana" }, confidence: 0.9 }),
+      plan,
+    });
+    const out = await run({ utterance: "what happened", lang: "en", confirm: undefined }, ctx);
+    expect(out.intent).toBe("lot_status");
+    expect(out.reply.key).toBe("assistant.lots.summary");
+  });
+
+  /* The unsafe states, one per line. Each must land on `unknown` and call
+     nothing - never reach a planner because a comparison returned false. */
+  const BAD: Array<[string, unknown]> = [
+    ["no confidence at all", { intent: "retire_credit", slots: { creditId: "crd_a" } }],
+    ["NaN confidence", { intent: "retire_credit", slots: { creditId: "crd_a" }, confidence: Number.NaN }],
+    ["no slots either", { intent: "run_matching" }],
+  ];
+
+  for (const [label, bad] of BAD) {
+    it(`refuses a resolution with ${label}`, async () => {
+      const { call, plan } = setup();
+      const run = makeAnswer({ resolve: () => bad as never, plan });
+      const out = await run({ utterance: "retire crd_a", lang: "en", confirm: undefined }, ctx);
+
+      expect(out.intent).toBe("unknown");
+      expect(out.confirmation).toBeNull();
+      expect(out.performed).toBe(false);
+      expect(call).not.toHaveBeenCalled();
+    });
+  }
+});
