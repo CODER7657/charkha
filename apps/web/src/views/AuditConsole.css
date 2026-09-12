@@ -181,11 +181,18 @@
 .chain li.broken-here .seq::before {
   background: var(--bad);
 }
+/* A grid, not a wrapping flex row.
+   As flex with `margin-left: auto` on the confidence, tamper mode - where the
+   confidence becomes a text box - pushed it onto a line of its own, leaving an
+   orphaned empty input under every record. And because each row sized itself,
+   nothing lined up vertically from one row to the next down a 185-record list.
+   Fixed columns mean the agent badges, the actions and the trailing metadata
+   form actual columns. */
 .chain .row1 {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: 92px minmax(120px, 1fr) auto;
+  align-items: center;
+  gap: 8px 10px;
 }
 .chain .agent {
   font-size: 11px;
@@ -201,7 +208,8 @@
   font-size: 13.5px;
 }
 .chain .confidence {
-  margin-left: auto;
+  /* No margin-left:auto - the grid puts this in its own column now, and the
+     auto margin was what made it wrap in the first place. */
   font-size: 12px;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
@@ -473,4 +481,36 @@
 .audit .copyable.fail .copy-btn {
   color: var(--warn);
   border-color: var(--warn);
+}
+
+
+/* Everything trailing a record: trace, its task id, its confidence. One grid
+   slot, so the columns hold whether or not tamper mode has turned half the
+   row into text boxes. */
+.chain .row1-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* The agent badge sets the first column, so give every badge the same box or
+   the actions beside them will not line up. */
+.chain .agent {
+  display: inline-block;
+  width: 100%;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+/* In tamper mode the action is an input; it must not outgrow its column. */
+.chain .row1 input.edit {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.chain .row1-meta input.edit {
+  width: 7ch;
 }
