@@ -1,0 +1,221 @@
+/* Saathi — owned by core. Scoped under .saathi so it cannot reach into
+   another view. Colours come from the shell's tokens in ui.css; nothing here
+   invents one.
+
+   Everything is sized at or above the 11px projector floor that
+   legibility.test.ts enforces. This screen is also the one most likely to be
+   read on a cheap phone in daylight, which wants the same thing a projector
+   does. */
+
+.saathi {
+  gap: 14px;
+  max-width: 900px;
+}
+
+/* ---------- language ---------- */
+
+.saathi .sa-langs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.saathi .sa-lang {
+  padding: 7px 12px;
+  font-size: 13.5px;
+  border-radius: 3px;
+}
+
+/* Selected differs by background, border AND weight - never by hue alone.
+   Same rule Ayush and Harsh arrived at independently for the tamper demo and
+   the map: a projector crushes contrast and an accent outline is the first
+   thing to disappear. */
+.saathi .sa-lang.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0f1211;
+  font-weight: 600;
+}
+
+/* ---------- thread ---------- */
+
+.saathi .sa-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--soot);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  min-height: 320px;
+  max-height: 56vh;
+  overflow-y: auto;
+}
+
+.saathi .sa-turn {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.55;
+  max-width: 46em;
+  padding: 10px 13px;
+  border-radius: var(--radius);
+}
+
+.saathi .sa-turn.user {
+  align-self: flex-end;
+  background: var(--crust);
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+
+.saathi .sa-turn.saathi {
+  align-self: flex-start;
+  background: var(--void);
+  border: 1px solid var(--line-soft);
+  border-left: 3px solid var(--seq);
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.saathi .sa-turn.saathi p {
+  margin: 0;
+}
+
+.saathi .sa-turn.err {
+  align-self: flex-start;
+  background: var(--void);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--muted);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.saathi .sa-turn.muted {
+  color: var(--faint);
+}
+
+/* ---------- starters ---------- */
+
+.saathi .sa-starters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.saathi .sa-starters button {
+  font-size: 13.5px;
+  padding: 9px 13px;
+  text-align: left;
+  border-radius: var(--radius);
+  max-width: 100%;
+}
+
+/* ---------- confirmation ---------- */
+
+/* This is the moment a sentence becomes an action, so it is the loudest thing
+   in the thread rather than a quiet inline link. */
+.saathi .sa-confirm {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 2px;
+}
+
+.saathi .sa-confirm button {
+  font-size: 13.5px;
+  padding: 8px 14px;
+  font-weight: 600;
+}
+
+.saathi .sa-confirm .yes {
+  background: var(--flame);
+  border-color: var(--flame);
+  color: #0f1211;
+}
+
+.saathi .sa-done {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--seq);
+  align-self: flex-start;
+}
+
+/* ---------- the agents it took ---------- */
+
+/* The evidence that a mesh answered rather than one service. Small, but never
+   below the floor - a judge will lean in to read exactly this. */
+.saathi .sa-hops {
+  list-style: none;
+  margin: 0;
+  padding: 8px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.saathi .sa-hops li {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--faint);
+  flex-wrap: wrap;
+}
+
+.saathi .sa-hops b {
+  color: var(--seq);
+  font-weight: 600;
+}
+
+/* A failed hop is named, not hidden. Showing three of four agents and staying
+   silent about the fourth is how an outage reads as an answer. */
+.saathi .sa-hops li.fail b {
+  color: var(--ember);
+}
+
+.saathi .sa-hops code {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.saathi .sa-hops .ms {
+  margin-left: auto;
+}
+
+/* ---------- ask ---------- */
+
+.saathi .sa-ask {
+  display: flex;
+  gap: 8px;
+}
+
+.saathi .sa-ask input {
+  flex: 1;
+  min-width: 0;
+  font-size: 14.5px;
+  padding: 11px 13px;
+}
+
+.saathi .sa-ask button {
+  font-size: 14px;
+  padding: 11px 18px;
+  font-weight: 600;
+}
+
+@media (max-width: 720px) {
+  .saathi .sa-turn {
+    max-width: 100%;
+    font-size: 14px;
+  }
+  .saathi .sa-thread {
+    max-height: none;
+    padding: 12px;
+  }
+}
