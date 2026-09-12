@@ -308,3 +308,61 @@ select:focus {
     transition: none !important;
   }
 }
+
+/* ------------------------------------------------------------------ *
+ * Narrow screens.
+ *
+ * Measured on the deployed host at 375px: the document was 703px wide, so
+ * the whole site scrolled sideways on a phone. Two things caused it - the
+ * seven-tab nav laid out in one unwrappable row (517px on its own), and
+ * grid rows whose fixed columns could not fit.
+ *
+ * This matters more here than on most projects: the Field screen is
+ * explicitly for a farmer on a cheap phone, and it was reachable only by
+ * dragging the page left.
+ * ------------------------------------------------------------------ */
+
+/* Nothing may force the page wider than the screen. The tab strip scrolls
+   inside itself instead, which is the one place horizontal scrolling is the
+   right answer. */
+.shell {
+  overflow-x: hidden;
+}
+
+@media (max-width: 900px) {
+  .topbar {
+    gap: 12px;
+    padding: 10px 12px;
+  }
+
+  .tabs {
+    /* Scroll the tabs, not the page. min-width:0 is what actually lets a
+       flex child shrink below its content - without it the strip keeps its
+       full 517px and pushes everything else off. */
+    min-width: 0;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+  }
+
+  .tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tabs .tab {
+    flex: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .brand span:last-child {
+    /* The mark alone identifies us at this width, and the word costs 70px
+       that the tab strip needs more. */
+    display: none;
+  }
+
+  .view {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}

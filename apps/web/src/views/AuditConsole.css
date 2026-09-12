@@ -514,3 +514,42 @@
 .chain .row1-meta input.edit {
   width: 7ch;
 }
+
+/* At phone widths the three-column record row cannot fit: measured at 375px,
+   .row1-meta alone reached 497px and ran off the screen. Stack instead - the
+   agent, the action, then the ids underneath. */
+@media (max-width: 680px) {
+  .chain li {
+    grid-template-columns: 34px minmax(0, 1fr);
+    padding: 10px;
+  }
+
+  .chain .row1 {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 6px;
+  }
+
+  .chain .agent {
+    width: auto;
+    justify-self: start;
+  }
+
+  .chain .row1-meta {
+    justify-content: flex-start;
+    gap: 8px;
+  }
+
+  .chain .row2 {
+    flex-wrap: wrap;
+    gap: 6px 10px;
+  }
+
+  /* The full value is in the title and the copy button; the visible text can
+     shrink rather than push the row off the screen. */
+  .audit .copy-value {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 16ch;
+  }
+}
