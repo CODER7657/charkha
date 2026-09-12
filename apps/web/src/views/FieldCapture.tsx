@@ -2,6 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FeedstockClass, FieldEvidence, MatchSummary, VerifyEvidenceOutput } from "@charkha/core";
 import { api } from "../api.ts";
 import { LANGUAGES, detectLang, rememberLang, translator, type Lang } from "../i18n.ts";
+/* One copy implementation, tested in audit.copy.test.ts. A second copy here
+   would be a second thing to get wrong in the same way. */
+import { copyText } from "./AuditConsole.tsx";
 import { CLASSES, canaryTensor, topClass } from "../../../../agents/verifier/src/protocol.ts";
 import { buildEvidence, newEvidenceId, type BatchForm, type Scored } from "./field/evidence.ts";
 import { EvidenceQueue, type FlushReport } from "./field/queue.ts";
@@ -98,6 +101,7 @@ export const FieldCapture = () => {
      was no route from "I have a char pile" to the id this form demands. */
   const [choices, setChoices] = useState<MatchSummary[] | null>(null);
   const [choicesErr, setChoicesErr] = useState("");
+  const [copied, setCopied] = useState<"idle" | "ok" | "fail">("idle");
 
   const [batch, setBatch] = useState<BatchForm>({
     pyrolysisPeakTempC: "",
@@ -431,14 +435,35 @@ export const FieldCapture = () => {
                 ))}
               </div>
             )}
-            <input
-              className="fc-matchid"
-              value={matchId}
-              onChange={(e) => setMatchId(e.target.value)}
-              placeholder={t("or paste a match ID")}
-              autoCapitalize="off"
-              aria-label={t("Match ID")}
-            />
+            <div className="fc-matchid-row">
+              <input
+                className="fc-matchid"
+                value={matchId}
+                onChange={(e) => setMatchId(e.target.value)}
+                placeholder={t("or paste a match ID")}
+                autoCapitalize="off"
+                aria-label={t("Match ID")}
+              />
+              {/* The id is what a field worker reads back to an operator, or
+                  pastes into Audit. Hunting for it inside a text input is not
+                  that, and on a phone a long value scrolls out of sight. */}
+              {matchId ? (
+                <button
+                  type="button"
+                  className="fc-copy"
+                  aria-label={`${t("Copy")} ${matchId}`}
+                  title={matchId}
+                  onClick={() => {
+                    void copyText(matchId).then((ok) => {
+                      setCopied(ok ? "ok" : "fail");
+                      setTimeout(() => setCopied("idle"), 1600);
+                    });
+                  }}
+                >
+                  {copied === "ok" ? t("Copied") : copied === "fail" ? t("Select it") : t("Copy")}
+                </button>
+              ) : null}
+            </div>
           </label>
           <label>
             {t("Feedstock")}
