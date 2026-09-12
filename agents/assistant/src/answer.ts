@@ -15,7 +15,10 @@ import { resolve } from "./resolve.ts";
  * ------------------------------------------------------------------ */
 
 /** Hem's contract, #62. Utterance in, intent and slots out. Pure. */
-export type Resolve = (utterance: string, lang: z.infer<typeof AssistantAskInput>["lang"]) => Resolved;
+export type Resolve = (
+  utterance: string,
+  lang: z.infer<typeof AssistantAskInput>["lang"],
+) => Resolved | Promise<Resolved>;
 
 /**
  * Until resolve.ts lands, everything is `unknown` with zero confidence.
@@ -48,16 +51,32 @@ export const makeAnswer =
     ctx: SkillContext,
   ): Promise<AssistantAnswerOutput> => {
     ctx.progress(`resolving a ${input.lang} request`);
-    const resolved = deps.resolve(input.utterance, input.lang);
+    const resolved = await deps.resolve(input.utterance, input.lang);
 
     /* A weak match is downgraded to `unknown` before the planner ever sees it,
        so a low-confidence `retire_credit` cannot reach a planning module at
        all. Refusing to understand is always safe; acting on a coin flip is
        not. */
-    const gated: Resolved =
-      resolved.confidence < MIN_CONFIDENCE
-        ? { intent: "unknown", slots: resolved.slots, confidence: resolved.confidence }
-        : resolved;
+    /* Written as "not confident enough" rather than "below the floor", and the
+       difference is not style.
+    
+       `undefined < 0.5` is FALSE, so a confidence that never arrived used to
+       pass the gate rather than fail it - an unresolved sentence would have
+       been handed straight to a planner. NaN does the same. Both are exactly
+       the states a broken or half-migrated resolver produces, and the old
+       comparison failed open on every one of them.
+    
+       Hem found this while making the resolver async for ONNX: if `resolve()`
+       returned a Promise, `resolved.confidence` is undefined and the gate
+       silently disappears. That is fixed by the `await` above; this is the
+       belt to its braces, because the next resolver will be written by
+       somebody who has not read this comment. */
+    const confident =
+      typeof resolved.confidence === "number" && resolved.confidence >= MIN_CONFIDENCE;
+
+    const gated: Resolved = confident
+      ? resolved
+      : { intent: "unknown", slots: resolved.slots ?? {}, confidence: resolved.confidence ?? 0 };
 
     /* Who is asking comes from the caller, never from the sentence.
     
