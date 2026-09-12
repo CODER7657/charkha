@@ -3,115 +3,155 @@
 **Waste-to-Carbon-Value Chain Tracker** — HackOut'26, Circular Carbon Ecosystem.
 
 Crop residue that would otherwise be burned is detected from satellite, routed to a
-nearby conversion unit, verified in the field, and issued as a retirable carbon
-credit. One task id threads the whole chain: **detection → match → evidence →
-decision → credential → retirement**.
+nearby conversion unit, verified in the field from a phone, and issued as a retirable
+W3C Verifiable Credential. **One task id threads the whole chain.**
 
-Detection is already a solved problem. This is what happens *after* detection.
+Detection is a solved problem. This is what happens *after* detection — and whether
+anyone can check that it happened.
+
+**Live:** <https://charkha-hashhawks.centralindia.cloudapp.azure.com>
+
+| | |
+|---|---|
+| A2A agents | **4**, 7 skills, each with its own Agent Card and JWT auth |
+| Tests | **344** across 28 files, 0 skipped |
+| Production ledger | **67 records, chain valid** |
+| Carbon factors | **4**, every one cited to IPCC 2019 Refinement |
+| Evidence payload | **~699 bytes** — a hash, never an image |
+| Languages | English, हिन्दी, ਪੰਜਾਬੀ, ગુજરાતી |
+| Hosted AI calls | **0** — CI fails the build if one appears |
 
 ---
+
+## The chain
+
+```mermaid
+flowchart LR
+  A["🛰️ NASA FIRMS<br/>VIIRS_NOAA20_NRT"] --> B["Producer<br/>residue lot"]
+  B --> C["Matchmaker<br/>lot → unit, ≤ radius"]
+  C --> D["📱 Field capture<br/>ONNX in the browser"]
+  D --> E["Verifier<br/>canary + methodology"]
+  E --> F["Registry<br/>tCO₂e → credential"]
+  F --> G["♻️ Retirement<br/>status-list bit set"]
+
+  B -.-> L[("Hash-chained<br/>decision ledger")]
+  C -.-> L
+  E -.-> L
+  F -.-> L
+  G -.-> L
+```
+
+Every dotted line is one `appendDecision()` — exactly one row per meaningful decision,
+append-only, `SHA256(prevHash + canonicalJson(body))`. Edit any row and the chain
+breaks at that row and every row after it.
+
+## Architecture
+
+```mermaid
+flowchart TB
+  subgraph browser["One origin — the browser never talks to an agent"]
+    W["Mesh · Operator · Audit · Field · Provenance"]
+  end
+  W --> GW["Gateway :4000<br/>mints agent JWTs server-side"]
+
+  subgraph mesh["A2A mesh — bearer token required, 401 without"]
+    P["Producer :4001"]
+    M["Matchmaker :4002"]
+    V["Verifier :4003"]
+    R["Registry :4004"]
+  end
+
+  GW --> P & M & V & R
+  M -.A2A.-> P
+  V -.A2A.-> M
+  R -.A2A.-> V
+  P & M & V & R --> DB[("Postgres<br/>advisory locks + unique indexes")]
+```
+
+The field photo is scored by `onnxruntime-web` **on the device**. The server re-runs a
+pseudo-random **canary tensor seeded from the image hash** through `onnxruntime-node`
+and compares. Agreement on the deployed host: **~1e-9**. So the server never sees the
+photo and can still prove you ran its exact model on it.
+
+## What is real, and what is not
+
+Stated plainly, because an overclaim a judge finds costs more than a limitation we
+volunteer. The running system says the same thing on its **Provenance** screen, read
+live from the services rather than typed by hand.
+
+| | |
+|---|---|
+| A2A messaging, task lifecycle, Agent Cards | **real** — official SDK, validated by the A2A Inspector |
+| Hash-chained decision ledger | **real** — serialised under a DB advisory lock, 50 concurrent appends tested |
+| W3C Verifiable Credentials | **real** — locally generated `did:key`, signature checked in your browser |
+| ONNX, two runtimes | **real** — one model file, agreement asserted by a parity test |
+| Live satellite feed | **real** — NASA FIRMS, 5-day window, stated on screen |
+| Agent-to-agent auth | **real** — unauthenticated call is refused 401 |
+| One photo → one credit | **real** — unique index on `image_hash`; 5 concurrent claims leave 1 row |
+| Char-quality model | **partial** — a documented colour heuristic, **not a trained classifier** |
+| Retirement authorisation | **partial** — checks a holder field, not a signed presentation |
+| Message queue | **partial** — in-memory behind a broker-shaped interface |
+| Blockchain | **not used** — a hash chain gives tamper-evidence without a token or gas |
+| Third-party security audit | **no** — we ran our own and it found a credential-forgery path, which we closed |
+
+## Check it yourself
+
+Nothing here needs our cooperation:
+
+- **The chain** — Audit screen → *verify chain in this browser*. It re-hashes every record
+  with the same function the server runs. Edit one and watch it break at exactly that row.
+- **A credential** — decode the JWT, verify it against the issuer DID. Resolved locally;
+  our database is never asked to vouch for itself.
+- **Revocation** — read the bit your credential names in the published status list:
+  [`/status/credits`](https://charkha-hashhawks.centralindia.cloudapp.azure.com/status/credits)
+- **The photo never leaving** — open Field with the network tab recording. ~699 bytes, no image.
+- **That it is really A2A** — point the official [A2A Inspector](https://github.com/a2aproject/a2a-inspector)
+  at any agent. Not our code validating our own claim.
+
+```bash
+pnpm e2e https://charkha-hashhawks.centralindia.cloudapp.azure.com
+```
+
+Walks all 15 stages — detection, match, inference, verdict, credit, double-issuance
+refusal, wrong-holder refusal, retirement, idempotent retirement, chain validity.
 
 ## Quick start
 
 ```bash
 pnpm install
-pnpm setup:env                # writes .env with fresh random secrets
-# then paste your free FIRMS_MAP_KEY into .env
+pnpm setup:env                 # writes .env with fresh random secrets
 docker compose up -d db
 pnpm db:push && pnpm seed
-pnpm dev
+pnpm dev                       # agents + gateway + web
 ```
 
-There are no default passwords in this repo on purpose - a default is a value
-that quietly reaches the VPS. `pnpm setup:env` fills the blanks for you.
+There are no default passwords in this repo on purpose — a default is a value that
+quietly reaches a VPS. Free FIRMS key: <https://firms.modaps.eosdis.nasa.gov/api/map_key/>
 
-Whole stack in containers (what the demo runs on):
+Whole stack in containers, as the demo runs it:
 
 ```bash
-docker compose up -d          # db, migrate, four agents, gateway, caddy
+docker compose up -d           # db, migrate, 4 agents, gateway, caddy
+pnpm verify                    # lint, typecheck, 344 tests, web build
 ```
-
-`migrate` applies the schema and seeds conversion units, and the agents wait for
-it to finish rather than racing an empty database.
-
-Open <http://localhost:5173>. The API is on `:4000`, agents on `:4001–:4004`.
-
-Free FIRMS key: <https://firms.modaps.eosdis.nasa.gov/api/map_key/>
-
----
 
 ## Layout
 
-| Path | What | Owner |
-|---|---|---|
-| `packages/core` | Shared contracts, hash chain, geo, carbon math | core |
-| `packages/a2a` | Agent server/client wrapper, Agent Cards, JWT, rate limit | core |
-| `packages/db` | Drizzle schema + the append-only decision ledger | core |
-| `apps/gateway` | Single-origin API, trace assembly, serves the SPA | core |
-| `agents/producer` | Burn-detection ingest, residue lots | Harsh |
-| `agents/matchmaker` | Lot → conversion unit assignment | Harsh |
-| `agents/verifier` | ONNX evidence scoring, methodology checks | Hem |
-| `agents/registry` | Carbon math, credential issuance and retirement | Ayush |
-| `apps/web` | Three thin views on one backend | one view each |
-| `ml/` | Training and ONNX export | Hem |
+| Path | What |
+|---|---|
+| `packages/core` | Contracts, hash chain, geo, carbon math — the only place a boundary type lives |
+| `packages/a2a` | Agent server/client, Agent Cards, JWT, rate limiting |
+| `packages/db` | Drizzle schema and the append-only ledger |
+| `apps/gateway` | Single-origin API, trace assembly, serves the SPA |
+| `apps/web` | Five views: Mesh, Operator, Audit, Field, Provenance |
+| `agents/*` | producer, matchmaker, verifier, registry |
+| `ml/` | Model contract, training and ONNX export |
+| `docs/` | Deployment runbook and demo runbook |
+
+Working rules, ownership and the testing bar: [`CLAUDE.md`](CLAUDE.md).
 
 ---
 
-## Writing an agent skill
-
-You never touch the A2A protocol. Write a plain async function and register it:
-
-```ts
-await startAgentServer({
-  card,
-  port: 4002,
-  skills: {
-    runMatching: { input: RunMatchingInput, run: runMatching },
-  },
-});
-```
-
-The wrapper handles task lifecycle, event ordering, part encoding, JWT auth
-and rate limiting. Throw inside your handler and the task correctly ends
-`failed`. Input is already parsed and validated against the zod schema.
-
-Calling another agent is one function:
-
-```ts
-const { taskId, output } = await callAgent(AGENTS.verifier(), "verifyEvidence", evidence);
-```
-
----
-
-## Rules that keep us unblocked
-
-1. **`packages/core/src/contracts.ts` is the only place a boundary type is
-   defined.** Need a field? Add it there, in its own small PR, and say so in
-   the channel. Never widen a type inside your own agent.
-2. **Everything goes through a PR.** No direct pushes to `main`.
-   Branch naming: `harsh/producer-firms-ingest`, `hem/verifier-onnx`, etc.
-3. **One decision per meaningful action**, via `appendDecision()`. Never write
-   to `decision_log` any other way, and never UPDATE or DELETE a row in it.
-4. **Don't restyle another owner's view** without asking them.
-5. **Every number in carbon math carries a `source`.** "We guessed" loses.
-
-## Data rules — non-negotiable
-
-- The field photo **never leaves the device**. Inference runs in the browser;
-  we submit a hash and scores. No base64 images in any request body.
-- **No third-party AI APIs.** All inference is local — `onnxruntime-node` on
-  the server, `onnxruntime-web` in the browser.
-- **One outbound call**, a read-only `GET` to the fire-detection feed. We pull
-  public data in; nothing of ours goes out. No analytics, no telemetry.
-- The registry signing key is **server-side only** and never enters a client
-  bundle or a commit.
-- Map tiles from OpenStreetMap — no vendor account, no per-request identity.
-
-## Verify before you open a PR
-
-```bash
-pnpm verify
-```
-
-Typecheck, tests, web build. CI runs the same three. A red PR does not get
-reviewed.
+Built by **HashHawks** — [@CODER7657](https://github.com/CODER7657),
+[@harshpansuriya71-sudo](https://github.com/harshpansuriya71-sudo),
+[@Hem60](https://github.com/Hem60), [@Ayush3422](https://github.com/Ayush3422).
