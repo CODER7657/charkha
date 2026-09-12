@@ -148,6 +148,33 @@ export const Match = z.object({
 });
 export type Match = z.infer<typeof Match>;
 
+/**
+ * The matches a field worker could be standing in front of.
+ *
+ * Field capture asks for a matchId and, until this existed, offered no way on
+ * earth to obtain one: the input was free text with a `match_...` placeholder,
+ * and the only place a real id appeared was the Operator screen's result panel
+ * - which shows nothing once a round has used the day's capacity. A farmer
+ * with a phone and a char pile had no route to the id the form demands.
+ *
+ * `awaitingEvidence` is the default because that is the actual question being
+ * asked: which batch have I not yet photographed.
+ */
+export const ListMatchesInput = z.object({
+  /** Only matches with no evidence submitted yet. */
+  awaitingEvidence: z.boolean().default(true),
+  limit: z.number().int().min(1).max(200).default(25),
+});
+/** A match plus the human words needed to recognise it without knowing its id. */
+export const MatchSummary = Match.extend({
+  unitName: z.string(),
+  district: z.string().nullable(),
+  feedstock: FeedstockClass,
+  hasEvidence: z.boolean(),
+});
+export type MatchSummary = z.infer<typeof MatchSummary>;
+export const ListMatchesOutput = z.object({ matches: z.array(MatchSummary) });
+
 export const RunMatchingInput = z.object({
   district: z.string().optional(),
   maxRadiusKm: z.number().positive().default(60),

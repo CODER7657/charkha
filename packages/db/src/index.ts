@@ -3,7 +3,7 @@ import pg from "pg";
 import * as schema from "./schema.ts";
 
 export * as schema from "./schema.ts";
-export { eq, and, or, desc, asc, sql, inArray } from "drizzle-orm";
+export { eq, and, or, desc, asc, sql, inArray, isNull } from "drizzle-orm";
 
 let pool: pg.Pool | undefined;
 
