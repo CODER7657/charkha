@@ -214,10 +214,11 @@ export const FieldCapture = () => {
 
   const submit = async (feedstock?: FeedstockClass) => {
     if (!draft.body) return;
-    if (photoAlreadySent(sentImageHash, draft.body.imageHash)) {
-      setOutcome({ kind: "error", error: t("This photo has already been sent. Take a new one.") });
-      return;
-    }
+    /* Belt and braces - Submit is already disabled for a spent photo. Return
+       without touching `outcome`: setting an error here replaced the verdict,
+       and the recovery button only renders inside the verdict block, so a
+       second tap silently destroyed the way back. Found on a real device. */
+    if (photoAlreadySent(sentImageHash, draft.body.imageHash)) return;
     const body = feedstock ? { ...draft.body, batch: { ...draft.body.batch, feedstock } } : draft.body;
     const evidence = { ...body, evidenceId: newEvidenceId() };
     safeStorage().setItem("charkha.field.matchId", evidence.matchId);
@@ -247,6 +248,11 @@ export const FieldCapture = () => {
   };
 
   const top = photo ? topClass(photo.scored.photo) : null;
+  /* This exact photograph has already gone to the verifier. One image hash is
+     one evidence row, so sending it again can only be refused - say so beside
+     the button rather than letting them tap into a double-count refusal.
+     Derived, not stored: a new photo is a new hash, so it clears itself. */
+  const photoSpent = Boolean(draft.body) && photoAlreadySent(sentImageHash, draft.body!.imageHash);
   const field = (key: keyof BatchForm) => ({
     value: batch[key],
     onChange: (e: { target: { value: string } }) => setBatch((b) => ({ ...b, [key]: e.target.value })),
@@ -412,10 +418,13 @@ export const FieldCapture = () => {
           <pre>{draft.body ? JSON.stringify(draft.body, null, 2) : draft.error}</pre>
         </details>
         <div className="row">
-          <button className="fc-submit" disabled={!draft.body || busy} onClick={() => void submit()}>
+          <button className="fc-submit" disabled={!draft.body || busy || photoSpent} onClick={() => void submit()}>
             {t("Submit")}
           </button>
           {!draft.body ? <span className="muted">{draft.error}</span> : null}
+          {photoSpent ? (
+            <span className="fc-error">{t("This photo has already been sent. Take a new one.")}</span>
+          ) : null}
         </div>
 
         {outcome?.kind === "queued" ? (
