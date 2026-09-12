@@ -38,8 +38,20 @@ export const residueLots = pgTable(
     availableFrom: timestamp("available_from", { withTimezone: true }).notNull(),
     sourceDetectionId: text("source_detection_id"),
     status: text("status").notNull().default("listed"),
+    /* How this lot entered the system - see WasteOrigin in contracts.ts.
+    
+       A satellite detection is independent evidence: NASA saw a thermal
+       anomaly whether or not anyone wanted it seen. A declaration is a claim
+       by somebody who stands to be paid for it. Those carry different weight
+       and a carbon system that blurs them is doing the thing carbon markets
+       are criticised for.
+    
+       Defaulted rather than required so this is additive: every row that
+       exists today is a detection, and backfilling them as 'detected' is
+       true. Nothing may write 'declared' except the declare path. */
+    origin: text("origin").notNull().default("detected"),
   },
-  (t) => [index("lot_status_idx").on(t.status)],
+  (t) => [index("lot_status_idx").on(t.status), index("lot_origin_idx").on(t.origin)],
 );
 
 export const conversionUnits = pgTable("conversion_units", {
