@@ -472,16 +472,16 @@
   gap: 6px;
   font-size: 12.5px;
 }
-/* Pass and fail differ by mark as well as colour - sunlight washes out hue. */
-.field .fc-checks > *::before {
-  content: "×  ";
-  color: var(--ember);
-  font-family: var(--mono);
-}
-.field .fc-checks > .ok::before {
-  content: "✓  ";
-  color: var(--seq);
-}
+/* Pass and fail differ by mark as well as colour - sunlight washes out hue.
+   That mark is the inline <b>✓</b>/<b>✗</b> the list already renders, coloured
+   by `.fc-checks li.pass b` / `li.fail b` above.
+
+   There used to be a ::before marker here too, targeting `.ok`. This list emits
+   `pass`/`fail`, never `ok`, so the override never matched and EVERY row - all
+   four passing ones included - got the fallback red "×". On screen that read as
+   "× ✓ pyrolysis peak temperature": four green ticks each behind a red cross.
+   Invisible to every DOM assertion we make, because textContent does not carry
+   a CSS marker; only a screenshot of the phone showed it. */
 
 .field .fc-note {
   font-size: 12.5px;
