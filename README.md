@@ -23,6 +23,9 @@ anyone can check that it happened.
 
 ---
 
+
+**New here?** [Who uses which screen, and in what order](docs/WHO-DOES-WHAT.md) — including the one question everybody asks first: how to get a match id.
+
 ## The chain
 
 ```mermaid
