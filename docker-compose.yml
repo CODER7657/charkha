@@ -94,6 +94,25 @@ services:
       db: { condition: service_healthy }
       migrate: { condition: service_completed_successfully }
 
+  # Saathi. Not one of the four agents that make decisions - it holds no
+  # business logic and writes nothing to the ledger itself. It resolves a
+  # sentence, calls the others over A2A exactly as they call each other, and
+  # reports the hops. Kept out of the gateway's health check for that reason:
+  # a chat box being down does not mean the chain is broken.
+  assistant:
+    build: { context: ., dockerfile: Dockerfile }
+    command: pnpm -F @charkha/agent-assistant start
+    env_file: [.env]
+    environment:
+      DATABASE_URL: postgres://charkha:${POSTGRES_PASSWORD}@db:5432/charkha
+      PRODUCER_URL: http://producer:4001
+      MATCHMAKER_URL: http://matchmaker:4002
+      VERIFIER_URL: http://verifier:4003
+      REGISTRY_URL: http://registry:4004
+    depends_on:
+      db: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+
   gateway:
     build: { context: ., dockerfile: Dockerfile }
     command: pnpm -F @charkha/gateway start
@@ -104,10 +123,11 @@ services:
       MATCHMAKER_URL: http://matchmaker:4002
       VERIFIER_URL: http://verifier:4003
       REGISTRY_URL: http://registry:4004
+      ASSISTANT_URL: http://assistant:4005
       # The origin a browser and a credential holder actually reach us on.
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:4000}
     ports: ["4000:4000"]
-    depends_on: [producer, matchmaker, verifier, registry]
+    depends_on: [producer, matchmaker, verifier, registry, assistant]
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:4000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 10s

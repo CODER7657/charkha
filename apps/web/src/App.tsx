@@ -4,9 +4,10 @@ import { AuditConsole } from "./views/AuditConsole.tsx";
 import { FieldCapture } from "./views/FieldCapture.tsx";
 import { MeshView } from "./views/MeshView.tsx";
 import { ProvenanceView } from "./views/ProvenanceView.tsx";
+import { SaathiView } from "./views/SaathiView.tsx";
 import { api } from "./api.ts";
 
-type View = "mesh" | "operator" | "audit" | "field" | "provenance";
+type View = "mesh" | "operator" | "audit" | "field" | "saathi" | "provenance";
 
 const VIEWS: Array<{ id: View; label: string; owner: string }> = [
   /* Mesh first: it is the architecture claim, and a judge should see the four
@@ -15,6 +16,10 @@ const VIEWS: Array<{ id: View; label: string; owner: string }> = [
   { id: "operator", label: "Operator", owner: "Harsh" },
   { id: "audit", label: "Audit", owner: "Ayush" },
   { id: "field", label: "Field", owner: "Hem" },
+  /* The only screen written for the people the problem statement names -
+     municipalities, farms and waste generators. The four above it are for
+     dispatchers and auditors. */
+  { id: "saathi", label: "Saathi", owner: "core" },
   /* Last, and deliberately present: the receipts for everything the other
      four screens claim. */
   { id: "provenance", label: "Provenance", owner: "core" },
@@ -66,6 +71,7 @@ export const App = () => {
         {view === "operator" && <OperatorMap />}
         {view === "audit" && <AuditConsole />}
         {view === "field" && <FieldCapture />}
+        {view === "saathi" && <SaathiView />}
         {view === "provenance" && <ProvenanceView />}
       </main>
     </div>
