@@ -39,6 +39,35 @@
   border-color: var(--accent);
 }
 
+/* ---- where the map is looking ----
+ *
+ * A separate group from Radius, because they answer different questions: the
+ * radius changes WHAT the round does, these only change what you can see. A
+ * round that ran at 60 km still ran at 60 km whichever of these is pressed.
+ *
+ * No `.on` state here on purpose. These are actions, not a setting - the map
+ * can be panned away a moment later, and a button still lit would be claiming
+ * a view the user has already left. */
+.operator .framing {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 4px;
+}
+
+.operator .frame-step {
+  padding: 7px 11px;
+  font-size: 13.5px;
+  border-radius: 3px;
+}
+
+.operator .frame-step:disabled {
+  /* Dimmer AND flatter, not just dimmer: "nothing to look at yet" has to read
+     across a room, where a colour difference alone does not. */
+  opacity: 0.45;
+  border-style: dashed;
+}
+
 .operator .strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

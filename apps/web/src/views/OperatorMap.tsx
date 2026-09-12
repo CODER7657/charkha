@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { CircleMarker, MapContainer, Marker, Polyline, Popup, TileLayer } from "react-leaflet";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CircleMarker, MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
 import L from "leaflet";
 import type { ConversionUnit, FeedOrigin, Match, ResidueLot } from "@charkha/core";
 import { DEFAULT_RADIUS_KM, RADIUS_OPTIONS, summarise, unplacedMessage } from "./operator/summary.ts";
+import { allRouteBounds, framingKey, routeBounds, type Bounds } from "./operator/fit.ts";
 import "leaflet/dist/leaflet.css";
 import "./OperatorMap.css";
 
@@ -62,6 +63,68 @@ const unitIcon = L.divIcon({
   iconAnchor: [7, 7],
 });
 
+/**
+ * How close a single route is allowed to be framed.
+ *
+ * A 60 km route across a padded viewport is unmistakable; without a cap,
+ * fitBounds on a short route would drop the demo to street level, where a
+ * judge has lost the country and the point with it.
+ */
+const ROUTE_MAX_ZOOM = 10;
+/** Breathing room so an endpoint never sits under the map edge or the legend. */
+const FIT_PADDING: [number, number] = [56, 56];
+
+/**
+ * Moves the map, and nothing else.
+ *
+ * Lives inside MapContainer because that is the only place `useMap` has a map
+ * to talk to. `bounds` null means there is nowhere to look - a round that
+ * placed nothing, or nothing selected yet - and then this does NOTHING, which
+ * is what keeps the screen open on India until a round has actually run.
+ */
+const Frame = ({ bounds, maxZoom, homeKey }: { bounds: Bounds | null; maxZoom: number; homeKey: string }) => {
+  const map = useMap();
+  const key = framingKey(bounds);
+  /* Refit when the TARGET moves, not when React re-renders. Without this the
+     map would refit on every repaint and fight anyone trying to pan it. */
+  const applied = useRef<string>("");
+
+  /* Back to the country. Only fires on a deliberate press: `homeKey` is empty
+     until the button is used, so the map opens on MapContainer's own centre
+     and zoom and is never re-framed on mount. */
+  useEffect(() => {
+    if (homeKey === "") return;
+    map.setView(MAP_CENTRE, MAP_ZOOM, { animate: false });
+  }, [map, homeKey]);
+
+  useEffect(() => {
+    if (bounds === null || key === "" || key === applied.current) return;
+    applied.current = key;
+
+    /* `animate: false` is the whole fix, and it is not a preference.
+    
+       Leaflet's fitBounds animates the zoom, and that animation waits on a
+       CSS transitionend that never arrived here: measured in a production
+       build, getBoundsZoom said 9, fitBounds ran, and the zoom was still 5
+       immediately after, at +300ms, at +1500ms - with `zoomend` never firing
+       at all. The map panned and never scaled, which reads exactly like the
+       call being ignored.
+    
+       Skipping the animation makes setView apply synchronously. It is also
+       the better demo: an instant cut to the route is clearer from the back
+       of a room than a quarter-second glide, and it cannot get stuck. */
+    map.fitBounds(
+      [
+        [bounds[0][0], bounds[0][1]],
+        [bounds[1][0], bounds[1][1]],
+      ],
+      { padding: FIT_PADDING, maxZoom, animate: false },
+    );
+  }, [map, bounds, key, maxZoom]);
+
+  return null;
+};
+
 const nf = new Intl.NumberFormat("en-IN");
 const n1 = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 1 });
 
@@ -81,6 +144,25 @@ export const OperatorMap = () => {
   const [matches, setMatches] = useState<Match[]>([]);
   const [unmatched, setUnmatched] = useState<string[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
+  /* What the map is looking at. "home" is the country - the scale of the
+     problem, and where the screen opens before any round has run. "route"
+     frames the selected match; "all" frames every route a round drew.
+     
+     Deliberately NOT derived from `selected`: clicking a line ON the map must
+     select it without yanking the viewport out from under the click. Picking
+     a match from the LIST does move the map, because there you are asking to
+     be taken somewhere.
+     
+     `n` counts deliberate requests, so pressing "Whole country" a second time
+     after panning away actually takes you back rather than being a no-op. */
+  const [framing, setFraming] = useState<{ kind: "home" | "route" | "all"; n: number }>({
+    kind: "home",
+    n: 0,
+  });
+  const frame = useCallback(
+    (kind: "home" | "route" | "all") => setFraming((f) => ({ kind, n: f.n + 1 })),
+    [],
+  );
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [unitsMissing, setUnitsMissing] = useState(false);
@@ -175,6 +257,13 @@ export const OperatorMap = () => {
       setMatches(next);
       setUnmatched(unplaced);
       setSelected(next[0]?.matchId ?? null);
+      /* Frame the route the round selected. Fitting to ALL of them was the
+         obvious move and it does not work: measured on the deployed host,
+         matched lots span Tamil Nadu to Punjab, so "fit every route" returns
+         the national view we started from and the lines stay 13 pixels long.
+         A round that placed nothing frames nothing - `selected` is null, the
+         bounds are null, and the map stays where it is. */
+      if (next.length > 0) frame("route");
       setRanAtKm(radiusKm);
       await loadLots();
       return `${next.length} matched, ${unplaced.length} unplaced at ${radiusKm} km`;
@@ -195,6 +284,21 @@ export const OperatorMap = () => {
   );
 
   const totals = useMemo(() => summarise(lots, matches), [lots, matches]);
+
+  /* Where the map should be looking, as geometry. Null means nowhere - a round
+     that placed nothing, or a selection whose lot or unit has not loaded - and
+     `Frame` then leaves the viewport alone rather than throwing inside Leaflet
+     on an empty bounds. */
+  const mapBounds = useMemo<Bounds | null>(() => {
+    if (framing.kind === "all") return allRouteBounds(lines);
+    if (framing.kind !== "route") return null;
+    const line = lines.find((l) => l.match.matchId === selected);
+    return line ? routeBounds(line.from, line.to) : null;
+  }, [framing.kind, lines, selected]);
+
+  /* Only a deliberate press goes home, so the map opens on the country from
+     MapContainer's own centre and zoom and is not re-framed on mount. */
+  const homeKey = framing.kind === "home" && framing.n > 0 ? `home:${framing.n}` : "";
 
   const active = matches.find((m) => m.matchId === selected) ?? null;
   const activeLot = active ? lotById.get(active.lotId) : undefined;
@@ -231,6 +335,29 @@ export const OperatorMap = () => {
               {km} km
             </button>
           ))}
+        </span>
+        {/* Where to look. Disabled until a round has drawn something, so the
+            buttons never promise a view that does not exist yet. */}
+        <span className="framing" role="group" aria-label="Map view">
+          <button
+            type="button"
+            className="frame-step"
+            disabled={busy || selected === null}
+            onClick={() => frame("route")}
+          >
+            Selected route
+          </button>
+          <button
+            type="button"
+            className="frame-step"
+            disabled={busy || lines.length === 0}
+            onClick={() => frame("all")}
+          >
+            All routes
+          </button>
+          <button type="button" className="frame-step" disabled={busy} onClick={() => frame("home")}>
+            Whole country
+          </button>
         </span>
         <span className="muted">{msg}</span>
       </div>
@@ -272,6 +399,8 @@ export const OperatorMap = () => {
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               maxZoom={18}
             />
+
+            <Frame bounds={mapBounds} maxZoom={ROUTE_MAX_ZOOM} homeKey={homeKey} />
 
             {lots.map((lot) => {
               /* A listed lot is solid; a matched one is hollow and smaller, so
@@ -315,6 +444,27 @@ export const OperatorMap = () => {
                 </Popup>
               </Marker>
             ))}
+
+            {/* Both ends of the selected route, marked.
+            
+                At national zoom a 60 km route is about 13 pixels, and 3px
+                solid against 2px dashed does not carry that difference across
+                a room. A ring at each end is visible at any zoom and says
+                WHERE the route is even when the line itself is a smudge. */}
+            {activeLot && activeUnit
+              ? [
+                  { id: "from", at: activeLot.at },
+                  { id: "to", at: activeUnit.at },
+                ].map((end) => (
+                  <CircleMarker
+                    key={`halo-${end.id}`}
+                    center={[end.at.lat, end.at.lon]}
+                    radius={11}
+                    interactive={false}
+                    pathOptions={{ color: "#46c79a", weight: 2, fill: false, opacity: 0.9 }}
+                  />
+                ))
+              : null}
 
             {lines.map(({ match, from, to }) => (
               <Polyline
@@ -395,9 +545,15 @@ export const OperatorMap = () => {
               <ul className="match-list">
                 {matches.map((m) => (
                   <li key={m.matchId}>
+                    {/* Picking from the list takes you there; clicking the line
+                        on the map only selects, because you are already looking
+                        at it and moving the viewport under the click is rude. */}
                     <button
                       className={m.matchId === selected ? "on" : ""}
-                      onClick={() => setSelected(m.matchId)}
+                      onClick={() => {
+                        setSelected(m.matchId);
+                        frame("route");
+                      }}
                     >
                       <span>{unitById.get(m.unitId)?.name ?? m.unitId}</span>
                       <b>{n1.format(m.distanceKm)} km</b>
