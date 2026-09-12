@@ -54,8 +54,8 @@ const unitIcon = L.divIcon({
   // as well as hue, which is what keeps the map readable for a colourblind
   // viewer and in a washed-out projector.
   html: '<span class="unit-pin"></span>',
-  iconSize: [11, 11],
-  iconAnchor: [6, 6],
+  iconSize: [13, 13],
+  iconAnchor: [7, 7],
 });
 
 const nf = new Intl.NumberFormat("en-IN");
@@ -182,18 +182,22 @@ export const OperatorMap = () => {
     [matches, lotById, unitById],
   );
 
-  const totals = useMemo(
-    () => ({
-      lots: lots.length,
-      // Only what is still listed. Counting matched lots here would keep
-      // claiming tonnes as available at the same moment the map shows them
-      // already routed to a unit.
-      tonnes: lots.reduce((sum, l) => (l.status === "listed" ? sum + l.tonnes : sum), 0),
+  const totals = useMemo(() => {
+    const listed = lots.filter((l) => l.status === "listed");
+    return {
+      /* "Lots listed" means lots that are actually LISTED, not every marker on
+         the map. It used to count all of them while "Tonnes available" counted
+         only the listed ones, so the deployed strip read "43 lots / 14.1 t" -
+         a third of a tonne per lot, which anyone divides in their head and
+         disbelieves. The map still draws matched lots, so the count says how
+         many of the markers are still up for grabs. */
+      listed: listed.length,
+      onMap: lots.length,
+      tonnes: listed.reduce((sum, l) => sum + l.tonnes, 0),
       matched: matches.length,
       debit: matches.reduce((sum, m) => sum + m.transportKgCo2e, 0),
-    }),
-    [lots, matches],
-  );
+    };
+  }, [lots, matches]);
 
   const active = matches.find((m) => m.matchId === selected) ?? null;
   const activeLot = active ? lotById.get(active.lotId) : undefined;
@@ -217,9 +221,12 @@ export const OperatorMap = () => {
       </div>
 
       <div className="strip">
-        <Stat label="Lots listed" value={nf.format(totals.lots)} />
+        <Stat label="Lots listed" value={nf.format(totals.listed)} unit={`of ${nf.format(totals.onMap)} on map`} />
         <Stat label="Tonnes available" value={n1.format(totals.tonnes)} unit="t" />
-        <Stat label="Matched" value={nf.format(totals.matched)} unit={unmatched.length > 0 ? `of ${totals.lots}` : undefined} />
+        {/* Scoped to this round on purpose: the map shows earlier rounds too,
+            and "Matched 0" beside 36 already-matched markers is only confusing
+            if the label does not say which it means. */}
+        <Stat label="Matched this round" value={nf.format(totals.matched)} unit={unmatched.length > 0 ? `of ${totals.listed}` : undefined} />
         <Stat label="Transport debit" value={n1.format(totals.debit)} unit="kgCO₂e" />
       </div>
 
@@ -251,12 +258,25 @@ export const OperatorMap = () => {
               maxZoom={18}
             />
 
-            {lots.map((lot) => (
+            {lots.map((lot) => {
+              /* A listed lot is solid; a matched one is hollow and smaller, so
+                 running a round visibly changes the map rather than only adding
+                 lines. Fill and radius carry the state, not hue alone - a
+                 projector crushes contrast and two oranges would read as one.
+                 The dark ring keeps overlapping detections countable where they
+                 cluster, which they do around Ferozepur. */
+              const isListed = lot.status === "listed";
+              return (
               <CircleMarker
                 key={lot.lotId}
                 center={[lot.at.lat, lot.at.lon]}
-                radius={5}
-                pathOptions={{ color: "#ff7038", weight: 1, fillColor: "#ff7038", fillOpacity: 0.75 }}
+                radius={isListed ? 6 : 4}
+                pathOptions={{
+                  color: "#0f1211",
+                  weight: 1.5,
+                  fillColor: "#ff7038",
+                  fillOpacity: isListed ? 0.95 : 0.28,
+                }}
               >
                 <Popup>
                   <b>{n1.format(lot.tonnes)} t</b> {lot.feedstock.replace(/_/g, " ")}
@@ -266,7 +286,8 @@ export const OperatorMap = () => {
                   {new Date(lot.availableFrom).toUTCString()}
                 </Popup>
               </CircleMarker>
-            ))}
+              );
+            })}
 
             {units.map((unit) => (
               <Marker key={unit.unitId} position={[unit.at.lat, unit.at.lon]} icon={unitIcon}>
@@ -298,6 +319,9 @@ export const OperatorMap = () => {
           <div className="legend">
             <span className="key burn">
               <i /> Burn detection
+            </span>
+            <span className="key matched">
+              <i /> Already matched
             </span>
             <span className="key unit">
               <i /> Conversion unit

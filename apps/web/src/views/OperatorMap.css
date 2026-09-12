@@ -22,7 +22,7 @@
 
 .operator .stat-label {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 0.01em;
   margin-bottom: 3px;
   white-space: nowrap;
@@ -109,8 +109,8 @@
   padding: 8px 10px;
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  font-size: 12px;
+  gap: 6px;
+  font-size: 13px;
   color: var(--muted);
 }
 
@@ -136,6 +136,16 @@
   background: var(--accent);
 }
 
+/* Already-matched lots: same hue, hollow and smaller. State is carried by
+   fill and size as well as colour, because a projector crushes contrast and
+   two shades of the same orange arrive as one. */
+.operator .key.matched i {
+  border-radius: 50%;
+  background: transparent;
+  border: 1.5px solid var(--hot);
+  opacity: 0.75;
+}
+
 .operator .key.link i {
   height: 0;
   border-top: 2px dashed var(--accent);
@@ -143,10 +153,15 @@
 }
 
 .operator .unit-pin {
+  /* display:block is load-bearing. This is a <span> inside Leaflet's divIcon,
+     and width/height do nothing on an inline element - the pin was rendering
+     at 2px, so conversion units were effectively invisible on the map. Caught
+     by measuring the rendered box, not by looking at it. */
+  display: block;
   background: var(--accent);
   border: 1.5px solid #0f1211;
-  width: 11px;
-  height: 11px;
+  width: 13px;
+  height: 13px;
 }
 
 .operator .panel {
@@ -172,7 +187,11 @@
 
 .operator .rationale {
   color: var(--ink);
-  font-size: 13.5px;
+  /* Projector sizing: these are the numbers someone reads from the back of a
+     room, and 13px measured well under the ~18px that needs. Raised as far as
+     the 290px panel allows without the value wrapping onto its own line -
+     a wrapped "146.4 / kgCO2e" reads as a different number. */
+  font-size: 15px;
   line-height: 1.5;
   margin: 0;
   padding: 9px 11px;
@@ -184,9 +203,9 @@
 .operator .facts {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 7px;
   margin: 0;
-  font-size: 13px;
+  font-size: 14.5px;
 }
 
 .operator .facts div {
