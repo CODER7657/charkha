@@ -81,7 +81,13 @@ describe("credit_status", () => {
 
     const reply = plan.reply([{ credit: credit() }]);
     expect(reply.key).toBe("assistant.credit.status");
-    expect(reply.params).toMatchObject({ creditId: CREDIT_ID, status: "issued", tonnes: 1.05, holder: "prod_bathinda" });
+    expect(reply.params).toMatchObject({
+      creditId: CREDIT_ID,
+      /* A key, so the word renders in the reader's language. */
+      status: "assistant.status.issued",
+      tonnes: 1.05,
+      holder: "prod_bathinda",
+    });
   });
 
   /* The distinction this issue is really about. */
@@ -94,11 +100,11 @@ describe("credit_status", () => {
     const reply = plan.reply([{ credit: stale }]);
 
     expect(reply.key).toBe("assistant.credit.status_not_verifiable");
-    expect(reply.params["reason"]).toBe("unreachable_list");
+    expect(reply.params["reason"]).toBe("assistant.reason.unreachable_list");
     expect(reply.params["listHost"]).toBe("http://registry:4004");
     /* Still says what the credit IS. Not verifiable is not not-valid, and the
        reader still gets the status and the tonnage. */
-    expect(reply.params["status"]).toBe("issued");
+    expect(reply.params["status"]).toBe("assistant.status.issued");
     expect(reply.params["tonnes"]).toBe(1.05);
   });
 
@@ -109,7 +115,7 @@ describe("credit_status", () => {
 
     const reply = plan.reply([{ credit: credit() }]);
     expect(reply.key).toBe("assistant.credit.status_not_verifiable");
-    expect(reply.params["reason"]).toBe("origin_unknown");
+    expect(reply.params["reason"]).toBe("assistant.reason.origin_unknown");
   });
 
   it("says so when there is no such credit", () => {
@@ -163,7 +169,12 @@ describe("retire_credit", () => {
 
     const reply = plan.done({ credit: credit({ status: "retired" }) });
     expect(reply.key).toBe("assistant.credit.retired_detail");
-    expect(reply.params).toMatchObject({ creditId: CREDIT_ID, tonnes: 1.05, holder: "prod_bathinda", status: "retired" });
+    expect(reply.params).toMatchObject({
+      creditId: CREDIT_ID,
+      tonnes: 1.05,
+      holder: "prod_bathinda",
+      status: "assistant.status.retired",
+    });
   });
 
   it("still confirms something useful if the output cannot be read", () => {

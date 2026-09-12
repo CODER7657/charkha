@@ -25,13 +25,59 @@ type Dict = Record<string, Template>;
  * these are forty short strings and a dependency would be more code than the
  * thing it replaces - the same call we made for i18n itself.
  */
-export const fill = (template: Template, params: AssistantMessage["params"]): string =>
+export const fill = (template: Template, params: AssistantMessage["params"], lang: Lang = "en"): string =>
   template.replace(/\{(\w+)\}/g, (whole, name: string) => {
     const value = params[name];
-    return value === undefined ? whole : String(value);
+    if (value === undefined) return whole;
+    return renderValue(value, lang);
   });
 
+/**
+ * A parameter is not always a number or a name.
+ *
+ * Two kinds arrive as raw machine values and used to land untranslated inside
+ * a translated sentence - "crd_x ਹੁਣ retired ਹੈ", "जारी 2026-09-12T08:37:20.938Z".
+ * The frame was Punjabi and the word inside it was not, which is the same
+ * failure as prose in a parameter, one level down: `t()` reaches the template
+ * and stops.
+ *
+ * So: a value that names a key is rendered as that key, and an ISO timestamp
+ * is rendered as a date in the reader's locale. Everything else is unchanged.
+ */
+const ISO = /^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/;
+
+const renderValue = (value: string | number | boolean, lang: Lang): string => {
+  if (typeof value !== "string") return String(value);
+
+  if (value.startsWith("assistant.")) {
+    const dict = DICTS[lang] ?? EN;
+    return dict[value] ?? EN[value] ?? value;
+  }
+
+  if (ISO.test(value)) {
+    const at = new Date(value);
+    if (!Number.isNaN(at.getTime())) {
+      return new Intl.DateTimeFormat(LOCALE[lang], { dateStyle: "medium" }).format(at);
+    }
+  }
+
+  return value;
+};
+
+/** BCP-47 tags for the four languages the app offers. */
+const LOCALE: Record<Lang, string> = { en: "en-IN", hi: "hi-IN", pa: "pa-IN", gu: "gu-IN" };
+
 const EN: Dict = {
+  /* Values, not sentences. A status or a reason that arrives as a raw enum
+     reads as an English word inside a translated sentence. */
+  "assistant.status.issued": "live",
+  "assistant.status.retired": "retired",
+  "assistant.status.revoked": "revoked",
+  "assistant.reason.unreachable_list": "the list cannot be reached from here",
+  "assistant.reason.origin_unknown": "we cannot tell where the list should be",
+  "assistant.reason.no_status_entry": "the credential names no list",
+  "assistant.reason.no_credential": "there is no credential to check",
+
   "assistant.not_understood":
     "I did not understand that. You can ask what happened to your waste, how much CO₂ your district has sequestered, or ask me to run matching.",
   "assistant.refused": "{agent} would not do that, so nothing was changed.",
@@ -97,6 +143,14 @@ const EN: Dict = {
 };
 
 const HI: Dict = {
+  "assistant.status.issued": "चालू",
+  "assistant.status.retired": "रिटायर",
+  "assistant.status.revoked": "रद्द",
+  "assistant.reason.unreachable_list": "वह सूची यहाँ से खुल नहीं रही",
+  "assistant.reason.origin_unknown": "हमें पता नहीं कि सूची कहाँ होनी चाहिए",
+  "assistant.reason.no_status_entry": "क्रेडेंशियल में कोई सूची दर्ज नहीं है",
+  "assistant.reason.no_credential": "जाँचने के लिए कोई क्रेडेंशियल ही नहीं है",
+
   "assistant.not_understood":
     "मैं समझ नहीं पाया। आप पूछ सकते हैं कि आपके कूड़े का क्या हुआ, आपके ज़िले ने कितनी CO₂ रोकी, या मुझसे मैचिंग चलाने को कह सकते हैं।",
   "assistant.refused": "{agent} ने यह करने से मना कर दिया, इसलिए कुछ भी नहीं बदला।",
@@ -160,6 +214,14 @@ const HI: Dict = {
 };
 
 const PA: Dict = {
+  "assistant.status.issued": "ਚਾਲੂ",
+  "assistant.status.retired": "ਰਿਟਾਇਰ",
+  "assistant.status.revoked": "ਰੱਦ",
+  "assistant.reason.unreachable_list": "ਉਹ ਸੂਚੀ ਇੱਥੋਂ ਖੁੱਲ੍ਹ ਨਹੀਂ ਰਹੀ",
+  "assistant.reason.origin_unknown": "ਸਾਨੂੰ ਪਤਾ ਨਹੀਂ ਕਿ ਸੂਚੀ ਕਿੱਥੇ ਹੋਣੀ ਚਾਹੀਦੀ ਹੈ",
+  "assistant.reason.no_status_entry": "ਕ੍ਰੈਡੈਂਸ਼ੀਅਲ ਵਿੱਚ ਕੋਈ ਸੂਚੀ ਦਰਜ ਨਹੀਂ",
+  "assistant.reason.no_credential": "ਜਾਂਚਣ ਲਈ ਕੋਈ ਕ੍ਰੈਡੈਂਸ਼ੀਅਲ ਹੀ ਨਹੀਂ",
+
   "assistant.not_understood":
     "ਮੈਂ ਸਮਝ ਨਹੀਂ ਸਕਿਆ। ਤੁਸੀਂ ਪੁੱਛ ਸਕਦੇ ਹੋ ਕਿ ਤੁਹਾਡੇ ਕੂੜੇ ਦਾ ਕੀ ਹੋਇਆ, ਤੁਹਾਡੇ ਜ਼ਿਲ੍ਹੇ ਨੇ ਕਿੰਨੀ CO₂ ਰੋਕੀ, ਜਾਂ ਮੈਨੂੰ ਮੈਚਿੰਗ ਚਲਾਉਣ ਲਈ ਕਹਿ ਸਕਦੇ ਹੋ।",
   "assistant.refused": "{agent} ਨੇ ਇਹ ਕਰਨ ਤੋਂ ਇਨਕਾਰ ਕੀਤਾ, ਇਸ ਲਈ ਕੁਝ ਵੀ ਨਹੀਂ ਬਦਲਿਆ।",
@@ -223,6 +285,14 @@ const PA: Dict = {
 };
 
 const GU: Dict = {
+  "assistant.status.issued": "ચાલુ",
+  "assistant.status.retired": "રિટાયર",
+  "assistant.status.revoked": "રદ",
+  "assistant.reason.unreachable_list": "તે યાદી અહીંથી ખૂલતી નથી",
+  "assistant.reason.origin_unknown": "અમને ખબર નથી કે યાદી ક્યાં હોવી જોઈએ",
+  "assistant.reason.no_status_entry": "ક્રેડેન્શિયલમાં કોઈ યાદી નોંધાયેલ નથી",
+  "assistant.reason.no_credential": "તપાસવા માટે કોઈ ક્રેડેન્શિયલ જ નથી",
+
   "assistant.not_understood":
     "હું સમજી શક્યો નહીં. તમે પૂછી શકો છો કે તમારા કચરાનું શું થયું, તમારા જિલ્લાએ કેટલી CO₂ રોકી, અથવા મને મેચિંગ ચલાવવાનું કહી શકો છો.",
   "assistant.refused": "{agent} એ તે કરવાની ના પાડી, તેથી કશું બદલાયું નથી.",
@@ -298,4 +368,4 @@ export const KEYS = Object.keys(EN);
  * with their numbers in it, rather than `assistant.lots.summary`.
  */
 export const renderMessage = (m: AssistantMessage, lang: Lang): string =>
-  fill(DICTS[lang][m.key] ?? EN[m.key] ?? m.key, m.params);
+  fill(DICTS[lang][m.key] ?? EN[m.key] ?? m.key, m.params, lang);
