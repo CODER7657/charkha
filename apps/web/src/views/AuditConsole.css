@@ -29,11 +29,21 @@
 .audit-verdict.unknown {
   border-left-color: var(--muted);
 }
+/* Sized for a projector, not a monitor. At 13px this was unreadable from the
+   back of a room, which is the only place the tamper demo is ever watched
+   from. Measured on the deployed host before changing it. */
 .audit-verdict .stamp {
-  font-weight: 650;
-  letter-spacing: 0.08em;
-  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  font-size: 22px;
+  line-height: 1.1;
   font-variant-numeric: tabular-nums;
+}
+.audit-verdict {
+  border-left-width: 6px;
+}
+.audit-verdict .detail {
+  font-size: 14px;
 }
 .audit-verdict.valid .stamp {
   color: var(--ok);
@@ -141,11 +151,16 @@
 .chain li.selected {
   background: #1b201e;
 }
+/* The break has to be findable at a glance across a room. The tint alone was
+   a 1.08 contrast ratio against the panel - invisible on a monitor in a lit
+   room and gone entirely through a projector. The bar carries it now; the
+   tint is only support. */
 .chain li.broken-here {
-  background: #241a19;
+  background: #3a1d1b;
+  box-shadow: inset 4px 0 0 var(--bad);
 }
 .chain li.after-break {
-  opacity: 0.45;
+  opacity: 0.35;
 }
 .chain .seq {
   font-variant-numeric: tabular-nums;
