@@ -24,7 +24,30 @@ export const DEFAULT_BBOX = "73.8,29.5,77.5,32.2";
  * instrument and identical CSV schema, so nothing else changes.
  */
 export const DEFAULT_SOURCE = "VIIRS_NOAA20_NRT";
-export const DEFAULT_DAY_RANGE = 2;
+/**
+ * Five days, the FIRMS maximum - a demo-day decision, measured rather than
+ * guessed.
+ *
+ * Detections depend on what actually burned, and the belt genuinely goes quiet.
+ * Probed against our own bbox on 2026-09-12 (lots -> matched, 10 seeded units,
+ * 60 km):
+ *
+ *     1 day    0 lots  ->  0 matched     <- an EMPTY map
+ *     2 days  13 lots  -> 11 matched
+ *     3 days  21 lots  -> 18 matched
+ *     5 days  27 lots  -> 24 matched
+ *
+ * One day returned nothing at all, and two days had fallen from 18 lots to 13
+ * in twenty-four hours. Two quiet days in a row would take the 2-day window to
+ * near zero, and an empty opening shot is the one failure we cannot talk our
+ * way out of. September is also BEFORE the Oct-Nov burning peak, so the belt is
+ * likelier to be quieter on the day than busier.
+ *
+ * The honesty cost is small and we pay it out loud: `originNote` already states
+ * the window on screen ("live FIRMS feed, VIIRS_NOAA20_NRT, 5d"), so "five-day
+ * window" is visible rather than hidden.
+ */
+export const DEFAULT_DAY_RANGE = 5;
 
 /**
  * https://firms.modaps.eosdis.nasa.gov/api/area/csv/{MAP_KEY}/{SOURCE}/{bbox}/{dayRange}
