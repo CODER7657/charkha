@@ -2,7 +2,7 @@ import type { z } from "zod";
 import type { AssistantAskInput, AssistantAnswerOutput } from "@charkha/core";
 import type { SkillContext } from "@charkha/a2a";
 import { PLANNERS, liveCall, makePlanner, type Resolved } from "./planner.ts";
-import { resolveFallback } from "./resolve.fallback.ts";
+import { resolve } from "./resolve.ts";
 
 /* ------------------------------------------------------------------ *
  * OWNER: core
@@ -63,14 +63,8 @@ export const makeAnswer =
     return deps.plan(gated, input.confirm, ctx.progress);
   };
 
-/**
- * The wiring the agent actually runs.
- *
- * `resolveFallback` is a stand-in: English only, patterns only. When Hem's
- * four-language resolver lands (#62) this one line changes and
- * resolve.fallback.ts is deleted.
- */
+/** The wiring the agent actually runs. */
 export const answer = makeAnswer({
-  resolve: resolveFallback,
+  resolve,
   plan: makePlanner({ planners: PLANNERS, call: liveCall, now: () => Date.now() }),
 });
