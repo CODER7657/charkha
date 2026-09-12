@@ -84,6 +84,10 @@ jobs:
     env:
       DATABASE_URL: postgres://charkha@localhost:5432/charkha
       A2A_JWT_SECRET: ci_only
+      # The origin smoke fetches the status list from. It also ends up inside
+      # every credential this job signs, and smoke asserts the two agree - so
+      # leaving it unset is itself the failure being tested for.
+      PUBLIC_BASE_URL: http://localhost:4000
 
     steps:
       - uses: actions/checkout@v4
@@ -113,6 +117,12 @@ jobs:
 
       - name: build web
         run: pnpm -F @charkha/web build
+
+      # The registry cannot sign a status list without a seed, and answers 503.
+      # Generated per run rather than written down: it is a signing key, and a
+      # fixed one in this file is a key in the repository.
+      - name: registry signing seed for this run
+        run: echo "REGISTRY_DID_SEED=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
 
       - name: agents boot
         run: |
