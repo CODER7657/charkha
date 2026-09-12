@@ -1,6 +1,6 @@
 import { loadEnv } from "@charkha/a2a";
 import {
-  DEFAULT_BBOX,
+  BELT_BBOX,
   DEFAULT_SOURCE,
   buildFirmsUrl,
   looksLikeCsv,
@@ -32,7 +32,7 @@ import {
 loadEnv();
 
 /** The default belt, and a wider box for comparison. west,south,east,north. */
-const BELT = DEFAULT_BBOX;
+const BELT = BELT_BBOX;
 const WIDE = "72.0,28.0,79.0,33.0";
 
 type Probe = { label: string; bbox: string; dayRange: number };

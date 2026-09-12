@@ -20,9 +20,16 @@ import "./OperatorMap.css";
  * id - so a refresh cannot double the map.
  */
 
-/** Punjab/Haryana residue belt - the bbox the producer pulls. */
-const BELT_CENTRE: [number, number] = [30.42, 75.95];
-const BELT_ZOOM = 8;
+/**
+ * India - the bbox the producer pulls, INDIA_BBOX in firms.ts.
+ *
+ * Centred slightly north of the geographic centre because that is where the
+ * detections and the units both are: the belt still carries most of the map,
+ * it is just no longer the whole of it. Zoom 5 fits Punjab to Tamil Nadu in a
+ * projector-shaped frame without the user touching a control.
+ */
+const MAP_CENTRE: [number, number] = [22.8, 79.5];
+const MAP_ZOOM = 5;
 
 type Envelope<T> = { taskId?: string; output: T };
 
@@ -259,7 +266,7 @@ export const OperatorMap = () => {
               viewports, so a wheel that zoomed would swallow every attempt to
               scroll the page and drop the demo out over Rajasthan. The +/-
               control and double-click still zoom. */}
-          <MapContainer center={BELT_CENTRE} zoom={BELT_ZOOM} scrollWheelZoom={false}>
+          <MapContainer center={MAP_CENTRE} zoom={MAP_ZOOM} scrollWheelZoom={false}>
             <TileLayer
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

@@ -11,8 +11,36 @@ import { haversineKm } from "@charkha/core";
  * The live fetch and the cache live next door in feed.ts.
  * ------------------------------------------------------------------ */
 
+/**
+ * The Punjab/Haryana residue belt. west,south,east,north - the order the FIRMS
+ * area API expects.
+ *
+ * Kept as its own constant because the coverage tool measures against it and
+ * the numbers in this file were taken over it. It is no longer the default.
+ */
+export const BELT_BBOX = "73.8,29.5,77.5,32.2";
+/**
+ * Mainland India plus enough margin to keep the coastline inside the frame.
+ *
+ * Stubble burning is worst in the belt; it is not only there. Cane trash in
+ * Maharashtra and western UP, paddy in the Gangetic plain and the Krishna
+ * delta, and every one of them is the same problem with the same answer. A
+ * rectangle drawn around two states says this is a Punjab tool, and the first
+ * question that gets asked of a Punjab tool is whether it generalises.
+ *
+ * Widening the box without widening the units would be worse than not
+ * widening it - thousands of markers and nothing matchable reads as broken
+ * rather than as honest - so `scripts/seed.ts` places units across the
+ * country, and the two must be changed together.
+ *
+ * A bbox is a rectangle, so this includes sea and neighbouring territory. We
+ * do not filter the CSV by border: a detection is a detection, we report where
+ * it was, and inventing a national boundary check we cannot verify would be a
+ * worse answer than the rectangle.
+ */
+export const INDIA_BBOX = "68.0,6.5,97.5,35.8";
 /** west,south,east,north - the order the FIRMS area API expects. */
-export const DEFAULT_BBOX = "73.8,29.5,77.5,32.2";
+export const DEFAULT_BBOX = INDIA_BBOX;
 /**
  * NOAA-20, not Suomi-NPP. NASA is retiring S-NPP product delivery on
  * 2026-11-01 ("Data users should transition now to alternative products from
