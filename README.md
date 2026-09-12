@@ -86,6 +86,7 @@ live from the services rather than typed by hand.
 | W3C Verifiable Credentials | **real** — locally generated `did:key`, signature checked in your browser |
 | ONNX, two runtimes | **real** — one model file, agreement asserted by a parity test |
 | Live satellite feed | **real** — NASA FIRMS, 5-day window, stated on screen |
+| The area we cover | **partial** — we request a rectangle over India, and the subcontinent is not one. One box inside it (Sri Lanka) is dropped, listed with coordinates on Provenance; the rule is that no part of India lies inside a dropped box. **Not a border filter** — detections in Pakistan, Nepal and Myanmar stay, because any rectangle around them takes Indian land too |
 | Agent-to-agent auth | **real** — unauthenticated call is refused 401 |
 | One photo → one credit | **real** — unique index on `image_hash`; 5 concurrent claims leave 1 row |
 | Char-quality model | **partial** — a documented colour heuristic, **not a trained classifier** |
