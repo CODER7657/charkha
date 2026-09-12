@@ -85,12 +85,41 @@ describe("status list", () => {
   });
 
   it("sets exactly the retired credit's bit", async () => {
-    await store.insertCredit({ ...CREDIT, creditId: "crd_2", evidenceId: "evi_2" }, "task_2");
+    // Distinct index: the database's unique constraint forbids two credits
+    // sharing one, and the bit a holder checks is the credential's own index.
+    await store.insertCredit({ ...CREDIT, creditId: "crd_2", evidenceId: "evi_2", statusListIndex: 1 }, "task_2");
     await retireCredit({ ...input, creditId: "crd_2" }, ctx);
 
     const payload = statusListCredentialPayload(await store.listCredits(), "did:key:z6MkTestIssuer");
     expect(bitAt(payload.credentialSubject.encodedList, 0)).toBe(0);
     expect(bitAt(payload.credentialSubject.encodedList, 1)).toBe(1);
+  });
+
+  /**
+   * The one that matters. Indices come from a database sequence, so they stop
+   * matching array position the moment anything is issued out of order, in
+   * parallel, or after a refusal burned a sequence value - which is the normal
+   * case, not the exotic one.
+   *
+   * A holder checks the bit their OWN credential points at. If the list is
+   * built from position instead, a retired credit reads as live, under our own
+   * signature - the exact double-sale the status list exists to prevent.
+   */
+  it("sets the bit the credential commits to, not the row's position", () => {
+    const live = { ...CREDIT, creditId: "crd_a", evidenceId: "evi_a", statusListIndex: 5 };
+    const retired = {
+      ...CREDIT,
+      creditId: "crd_b",
+      evidenceId: "evi_b",
+      statusListIndex: 9,
+      status: "retired" as const,
+    };
+
+    const { encodedList } = statusListCredentialPayload([live, retired], "did:key:z6MkTestIssuer").credentialSubject;
+
+    expect(bitAt(encodedList, 9)).toBe(1); // the retired credit's own index
+    expect(bitAt(encodedList, 5)).toBe(0); // the live one's index
+    expect(bitAt(encodedList, 1)).toBe(0); // its position in the array, which means nothing
   });
 
   it("encodes a list large enough for the spec's minimum", () => {
