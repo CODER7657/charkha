@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AssistantIntent, AssistantLang } from "@charkha/core";
-import { MUTATING_FLOOR, UNKNOWN_FLOOR, resolve } from "./resolve.ts";
+import { resolve } from "./resolve.ts";
+import { MIN_CONFIDENCE } from "./answer.ts";
 
 /* ------------------------------------------------------------------ *
  * OWNER: Hem
@@ -149,6 +150,9 @@ const AMBIGUOUS_WRITES: Case[] = [
   { utterance: "रिटायर", lang: "hi", intent: "unknown" },
   { utterance: "ਕਰ ਦਿਓ", lang: "pa", intent: "unknown" },
   { utterance: "declare", lang: "en", intent: "unknown" },
+  /* Named on #62 as the row that is the safety argument for the feature. */
+  { utterance: "retire my credit", lang: "en", intent: "unknown" },
+  { utterance: "declare some waste", lang: "en", intent: "unknown" },
 ];
 
 const ALL = [...CASES, ...UNKNOWN_CASES, ...AMBIGUOUS_WRITES];
@@ -159,7 +163,7 @@ describe("resolve - the seven real intents, four languages", () => {
     (_lang, _utterance, _intent, c) => {
       const r = resolve(c.utterance, c.lang);
       expect(r.intent).toBe(c.intent);
-      expect(r.confidence).toBeGreaterThanOrEqual(UNKNOWN_FLOOR);
+      expect(r.confidence).toBeGreaterThanOrEqual(MIN_CONFIDENCE);
       for (const [k, v] of Object.entries(c.slots ?? {})) {
         expect(r.slots[k as keyof typeof r.slots], `slot ${k}`).toBe(v);
       }
@@ -173,7 +177,7 @@ describe("resolve - unknown is a success, not a failure", () => {
     (_lang, _utterance, c) => {
       const r = resolve(c.utterance, c.lang);
       expect(r.intent).toBe("unknown");
-      expect(r.confidence).toBeLessThan(UNKNOWN_FLOOR);
+      expect(r.confidence).toBeLessThan(MIN_CONFIDENCE);
     },
   );
 
@@ -189,11 +193,11 @@ describe("resolve - unknown is a success, not a failure", () => {
 describe("the guarantee: a coin flip never writes", () => {
   const MUTATING: AssistantIntent[] = ["declare_waste", "retire_credit"];
 
-  it("no utterance in the whole corpus yields a mutating intent below the mutating floor", () => {
+  it("no utterance in the whole corpus yields a mutating intent below the gate the planner applies", () => {
     for (const c of ALL) {
       const r = resolve(c.utterance, c.lang);
       if (MUTATING.includes(r.intent)) {
-        expect(r.confidence, `"${c.utterance}" resolved ${r.intent}`).toBeGreaterThanOrEqual(MUTATING_FLOOR);
+        expect(r.confidence, `"${c.utterance}" resolved ${r.intent}`).toBeGreaterThanOrEqual(MIN_CONFIDENCE);
       }
     }
   });
@@ -201,15 +205,12 @@ describe("the guarantee: a coin flip never writes", () => {
   it("anything below the unknown floor is reported as unknown, never as a real intent", () => {
     for (const c of ALL) {
       const r = resolve(c.utterance, c.lang);
-      if (r.confidence < UNKNOWN_FLOOR) {
+      if (r.confidence < MIN_CONFIDENCE) {
         expect(r.intent, `"${c.utterance}"`).toBe("unknown");
       }
     }
   });
 
-  it("the mutating floor is strictly higher than the unknown floor", () => {
-    expect(MUTATING_FLOOR).toBeGreaterThan(UNKNOWN_FLOOR);
-  });
 
   it("a bare verb with no object never reaches a write", () => {
     for (const u of ["retire", "retire it", "declare", "declare waste", "रिटायर करो", "ਰਿਟਾਇਰ"]) {
@@ -302,7 +303,7 @@ describe("a Hinglish declaration resolves, it does not silently refuse", () => {
     expect(r.slots.tonnes).toBe(3.5);
     expect(r.slots.feedstock).toBe("paddy_straw");
     expect(r.slots.district).toBe("Ludhiana");
-    expect(r.confidence).toBeGreaterThanOrEqual(MUTATING_FLOOR);
+    expect(r.confidence).toBeGreaterThanOrEqual(MIN_CONFIDENCE);
   });
 });
 
@@ -338,4 +339,30 @@ describe("ids, by shape", () => {
     const r = resolve("retire crd_d17eb9d2cd204ed497c5", "en");
     expect(r.slots.lotId).toBeUndefined();
   });
+});
+
+/* ------------------------------------------------------------------ *
+ * Devanagari, Gurmukhi and Gujarati are separate Unicode blocks. A fixture
+ * labelled `pa` that is actually written in Devanagari resolves perfectly,
+ * proves nothing about Punjabi, and is invisible to every assertion above.
+ * Mirrors the same check in apps/web/src/views/saathi/messages.test.ts.
+ * ------------------------------------------------------------------ */
+describe("the fixtures are written in the script they claim", () => {
+  const BLOCK: Record<string, RegExp> = { hi: /[ऀ-ॿ]/, pa: /[਀-੿]/, gu: /[઀-૿]/ };
+  const FOREIGN: Record<string, RegExp> = { hi: /[਀-੿઀-૿]/, pa: /[ऀ-ॿ઀-૿]/, gu: /[ऀ-ॿ਀-੿]/ };
+
+  for (const lang of ["hi", "pa", "gu"] as const) {
+    it(`${lang} fixtures contain ${lang} characters and no other Indic script`, () => {
+      const mine = ALL.filter((c) => c.lang === lang);
+      expect(mine.length, `no ${lang} fixtures at all`).toBeGreaterThan(0);
+      expect(
+        mine.filter((c) => !BLOCK[lang]!.test(c.utterance)).map((c) => c.utterance),
+        `${lang} fixtures with no ${lang} characters`,
+      ).toEqual([]);
+      expect(
+        mine.filter((c) => FOREIGN[lang]!.test(c.utterance)).map((c) => c.utterance),
+        `${lang} fixtures containing another Indic script`,
+      ).toEqual([]);
+    });
+  }
 });

@@ -25,17 +25,19 @@ export type Resolution = {
   confidence: number;
 };
 
-/** Below this, the answer is `unknown` whatever matched. */
-export const UNKNOWN_FLOOR = 0.5;
-
 /**
- * A state-changing intent needs more than a plausible match. Strictly above
- * UNKNOWN_FLOOR: the gap is the margin between "I think you meant this" and
- * "I am willing to write on it".
+ * There is deliberately no threshold in this file.
+ *
+ * `answer.ts` owns `MIN_CONFIDENCE` and forces `unknown` below it before any
+ * planner runs. How confident is confident enough is a policy about
+ * consequences, and duplicating it here would make "may this sentence write?"
+ * a decision three files each remember separately - which is how they drift.
+ *
+ * What this file owns instead is structural, and nothing above it can
+ * reconstruct: a write is only ever a CANDIDATE when its object is present in
+ * the sentence. "retire it" names no credit, so `retire_credit` never scores
+ * at all. That guarantee survives any threshold anyone later picks.
  */
-export const MUTATING_FLOOR = 0.7;
-
-const MUTATING = new Set<AssistantIntent>(["declare_waste", "retire_credit"]);
 
 /* ---------- normalisation ---------- */
 
@@ -208,8 +210,9 @@ const readDistrict = (text: string): string | undefined =>
   DISTRICT_FORMS.find(([form]) => text.includes(form))?.[1];
 
 /* ---------- intent markers ---------- *
- * Weight is how much a phrase alone should be believed. Nothing here reaches
- * MUTATING_FLOOR without a slot to act on. */
+ * Weight is how much a phrase alone should be believed. Nothing here becomes a
+ * write candidate without a slot to act on - that is the structural half of
+ * the guarantee, and it holds whatever threshold answer.ts later applies. */
 
 type Candidate = { intent: AssistantIntent; score: number };
 
@@ -305,13 +308,11 @@ export const resolve = (utterance: string, _lang: AssistantLang): Resolution => 
   const district = readDistrict(text);
   if (district) slots.district = district;
 
+  /* No candidate means no reading of this sentence, which is `unknown` with
+     nothing to hedge. Otherwise report the honest score and let the gate in
+     answer.ts decide whether that is enough to act on. */
   const best = candidates(text, slots).sort((a, b) => b.score - a.score)[0];
   if (!best) return unknown(slots);
-
-  /* The two gates, in order. A mutating intent that did not clear its higher
-     bar becomes `unknown` rather than a hedged write. */
-  if (MUTATING.has(best.intent) && best.score < MUTATING_FLOOR) return unknown(slots);
-  if (best.score < UNKNOWN_FLOOR) return unknown(slots);
 
   return { intent: best.intent, slots, confidence: best.score };
 };
