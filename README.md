@@ -1,6 +1,6 @@
 # Charkha
 
-**Waste-to-Carbon-Value Chain Tracker** — waste-to-carbon-value chain tracker.
+**Crop-residue fire to retirable carbon credit, traced end to end with one task id.**
 
 Crop residue that would otherwise be burned is detected from satellite, routed to a
 nearby conversion unit, verified in the field from a phone, and issued as a retirable
