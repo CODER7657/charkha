@@ -9,13 +9,14 @@ W3C Verifiable Credential. **One task id threads the whole chain.**
 Detection is a solved problem. This is what happens *after* detection — and whether
 anyone can check that it happened.
 
-**Live:** <https://charkha-hashhawks.centralindia.cloudapp.azure.com>
+**Status:** the HackOut '26 deployment on Azure has been shut down. The whole stack runs
+locally with `docker compose up -d` ([Quick start](#quick-start)).
 
 | | |
 |---|---|
 | A2A agents | **4**, 7 skills, each with its own Agent Card and JWT auth |
-| Tests | **344** across 28 files, 0 skipped |
-| Production ledger | **67 records, chain valid** |
+| Tests | **750** across 49 files, in CI on every push |
+| Ledger at the HackOut '26 demo | **67 records, chain valid** |
 | Carbon factors | **4**, every one cited to IPCC 2019 Refinement |
 | Evidence payload | **~699 bytes** — a hash, never an image |
 | Languages | English, हिन्दी, ਪੰਜਾਬੀ, ગુજરાતી |
@@ -107,13 +108,13 @@ Nothing here needs our cooperation:
 - **A credential** — decode the JWT, verify it against the issuer DID. Resolved locally;
   our database is never asked to vouch for itself.
 - **Revocation** — read the bit your credential names in the published status list:
-  [`/status/credits`](https://charkha-hashhawks.centralindia.cloudapp.azure.com/status/credits)
+  `GET /status/credits` on the gateway.
 - **The photo never leaving** — open Field with the network tab recording. ~699 bytes, no image.
 - **That it is really A2A** — point the official [A2A Inspector](https://github.com/a2aproject/a2a-inspector)
   at any agent. Not our code validating our own claim.
 
 ```bash
-pnpm e2e https://charkha-hashhawks.centralindia.cloudapp.azure.com
+pnpm e2e                       # defaults to the local gateway, http://127.0.0.1:4000
 ```
 
 Walks all 15 stages — detection, match, inference, verdict, credit, double-issuance
@@ -136,7 +137,7 @@ Whole stack in containers, as the demo runs it:
 
 ```bash
 docker compose up -d           # db, migrate, 4 agents, gateway, caddy
-pnpm verify                    # lint, typecheck, 344 tests, web build
+pnpm verify                    # lint, typecheck, 750 tests, web build
 ```
 
 ## Layout
