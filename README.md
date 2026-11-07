@@ -1,6 +1,6 @@
 # Charkha
 
-**Waste-to-Carbon-Value Chain Tracker** — HackOut'26, Circular Carbon Ecosystem.
+**Waste-to-Carbon-Value Chain Tracker** — waste-to-carbon-value chain tracker.
 
 Crop residue that would otherwise be burned is detected from satellite, routed to a
 nearby conversion unit, verified in the field from a phone, and issued as a retirable
@@ -9,14 +9,14 @@ W3C Verifiable Credential. **One task id threads the whole chain.**
 Detection is a solved problem. This is what happens *after* detection — and whether
 anyone can check that it happened.
 
-**Status:** the HackOut '26 deployment on Azure has been shut down. The whole stack runs
+**Status:** the earlier Azure deployment has been shut down. The whole stack runs
 locally with `docker compose up -d` ([Quick start](#quick-start)).
 
 | | |
 |---|---|
 | A2A agents | **4**, 7 skills, each with its own Agent Card and JWT auth |
 | Tests | **750** across 49 files, in CI on every push |
-| Ledger at the HackOut '26 demo | **67 records, chain valid** |
+| Ledger at the last public run | **67 records, chain valid** |
 | Carbon factors | **4**, every one cited to IPCC 2019 Refinement |
 | Evidence payload | **~699 bytes** — a hash, never an image |
 | Languages | English, हिन्दी, ਪੰਜਾਬੀ, ગુજરાતી |
@@ -79,7 +79,7 @@ photo and can still prove you ran its exact model on it.
 
 ## What is real, and what is not
 
-Stated plainly, because an overclaim a judge finds costs more than a limitation we
+Stated plainly, because an overclaim a reviewer finds costs more than a limitation we
 volunteer. The running system says the same thing on its **Provenance** screen, read
 live from the services rather than typed by hand.
 
@@ -156,6 +156,8 @@ pnpm verify                    # lint, typecheck, 750 tests, web build
 Working rules, ownership and the testing bar: [`CLAUDE.md`](CLAUDE.md).
 
 ---
+
+## Authors
 
 Built by **HashHawks** — [@CODER7657](https://github.com/CODER7657),
 [@harshpansuriya71-sudo](https://github.com/harshpansuriya71-sudo),
