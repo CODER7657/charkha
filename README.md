@@ -15,7 +15,7 @@ locally with `docker compose up -d` ([Quick start](#quick-start)).
 | | |
 |---|---|
 | A2A agents | **4**, 7 skills, each with its own Agent Card and JWT auth |
-| Tests | **750** across 49 files, in CI on every push |
+| Tests | **754** across 50 files, in CI on every push |
 | Ledger at the last public run | **67 records, chain valid** |
 | Carbon factors | **4**, every one cited to IPCC 2019 Refinement |
 | Evidence payload | **~699 bytes** — a hash, never an image |
