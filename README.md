@@ -137,7 +137,7 @@ Whole stack in containers, as the demo runs it:
 
 ```bash
 docker compose up -d           # db, migrate, 4 agents, gateway, caddy
-pnpm verify                    # lint, typecheck, 750 tests, web build
+pnpm verify                    # lint, typecheck, 754 tests, web build
 ```
 
 ## Layout
