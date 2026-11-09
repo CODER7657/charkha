@@ -18,9 +18,9 @@ import { answer } from "./answer.ts";
  * credit is worth, we have two implementations of the carbon maths and one of
  * them is untested.
  *
- * NOT WIRED IN YET, on purpose. It is absent from AGENTS, from compose, from
- * the gateway and from health, so nothing that currently works can notice it.
- * Integration happens once the whole thing is proven, in one deliberate PR.
+ * Wired in as a front door, not a mesh member: the gateway calls it at
+ * /api/saathi and compose runs it, but it stays out of AGENTS and /api/health,
+ * so "healthy" still means the four-agent chain is up (see apps/gateway).
  * ------------------------------------------------------------------ */
 
 loadEnv();
