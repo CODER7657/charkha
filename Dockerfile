@@ -5,7 +5,7 @@
 # actually ran inference - at the worst possible moment. The image is a little
 # larger; that is a trade worth making for the component the whole pitch rests
 # on.
-FROM node:22-slim
+FROM node:26-slim
 
 RUN corepack enable
 
