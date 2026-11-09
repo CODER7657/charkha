@@ -14,7 +14,7 @@ locally with `docker compose up -d` ([Quick start](#quick-start)).
 
 | | |
 |---|---|
-| A2A agents | **4**, 7 skills, each with its own Agent Card and JWT auth |
+| A2A agents | **4** in the chain (7 skills), each with its own Agent Card and JWT auth, plus **Saathi**, a conversational front door to them |
 | Tests | **750** across 49 files, in CI on every push |
 | Ledger at the last public run | **67 records, chain valid** |
 | Carbon factors | **4**, every one cited to IPCC 2019 Refinement |
@@ -48,6 +48,22 @@ flowchart LR
 Every dotted line is one `appendDecision()` — exactly one row per meaningful decision,
 append-only, `SHA256(prevHash + canonicalJson(body))`. Edit any row and the chain
 breaks at that row and every row after it.
+
+## Saathi: a way in for the people the chain serves
+
+Three of the four users the problem names (municipalities, waste generators, facility
+operators) have no screen of their own. Saathi lets them type one sentence, in English,
+Hindi, Punjabi or Gujarati, and get an answer. It resolves the intent, plans which
+**existing** skills answer it, calls them over A2A with the same bearer token and task
+lifecycle as any agent, and shows the hops it made. It owns no business logic, so every
+guard in the chain still applies; anything that changes state (declaring waste, retiring
+a credit) is **proposed and needs an explicit confirmation**, never performed from a
+sentence alone.
+
+It is a front door, not a fifth link: `/api/saathi` on the gateway, the Saathi view in the
+web app, and its own service in `docker-compose.yml`, but deliberately outside
+`/api/health`, so the chain's health means the same thing it did before. Code and
+205 tests: [`agents/assistant/`](agents/assistant).
 
 ## Architecture
 
@@ -136,7 +152,7 @@ quietly reaches a VPS. Free FIRMS key: <https://firms.modaps.eosdis.nasa.gov/api
 Whole stack in containers, as the demo runs it:
 
 ```bash
-docker compose up -d           # db, migrate, 4 agents, gateway, caddy
+docker compose up -d           # db, migrate, 4 agents, Saathi, gateway, caddy
 pnpm verify                    # lint, typecheck, 750 tests, web build
 ```
 
@@ -149,7 +165,7 @@ pnpm verify                    # lint, typecheck, 750 tests, web build
 | `packages/db` | Drizzle schema and the append-only ledger |
 | `apps/gateway` | Single-origin API, trace assembly, serves the SPA |
 | `apps/web` | Five views: Mesh, Operator, Audit, Field, Provenance |
-| `agents/*` | producer, matchmaker, verifier, registry |
+| `agents/*` | producer, matchmaker, verifier, registry, and assistant (Saathi) |
 | `ml/` | Model contract, training and ONNX export |
 | `docs/` | Deployment runbook and demo runbook |
 
