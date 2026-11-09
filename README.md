@@ -15,7 +15,7 @@ locally with `docker compose up -d` ([Quick start](#quick-start)).
 | | |
 |---|---|
 | A2A agents | **4** in the chain (7 skills), each with its own Agent Card and JWT auth, plus **Saathi**, a conversational front door to them |
-| Tests | **750** across 49 files, in CI on every push |
+| Tests | **754** across 50 files, in CI on every push |
 | Ledger at the last public run | **67 records, chain valid** |
 | Carbon factors | **4**, every one cited to IPCC 2019 Refinement |
 | Evidence payload | **~699 bytes** — a hash, never an image |
@@ -153,7 +153,7 @@ Whole stack in containers, as the demo runs it:
 
 ```bash
 docker compose up -d           # db, migrate, 4 agents, Saathi, gateway, caddy
-pnpm verify                    # lint, typecheck, 750 tests, web build
+pnpm verify                    # lint, typecheck, 754 tests, web build
 ```
 
 ## Layout

@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { CircleMarker, MapContainer, Marker, Polyline, Popup, TileLayer } from "react-leaflet";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CircleMarker, MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
 import L from "leaflet";
 import type { ConversionUnit, FeedOrigin, Match, ResidueLot } from "@charkha/core";
 import { DEFAULT_RADIUS_KM, RADIUS_OPTIONS, summarise, unplacedMessage } from "./operator/summary.ts";
+import { routeBounds, type LatLon } from "./operator/fit.ts";
 import "leaflet/dist/leaflet.css";
 import "./OperatorMap.css";
 
@@ -30,6 +31,20 @@ import "./OperatorMap.css";
  */
 const MAP_CENTRE: [number, number] = [22.8, 79.5];
 const MAP_ZOOM = 5;
+
+/* After a round, frame its routes (#91). Keyed on the round, so panning afterwards is
+   left alone until the next "Run matching". */
+function FitToRound({ round, lines }: { round: number; lines: { from: LatLon; to: LatLon }[] }) {
+  const map = useMap();
+  const latest = useRef(lines);
+  latest.current = lines;
+  useEffect(() => {
+    if (round === 0) return;
+    const bounds = routeBounds(latest.current);
+    if (bounds) map.fitBounds(bounds, { padding: [40, 40], maxZoom: 9 });
+  }, [round, map]);
+  return null;
+}
 
 type Envelope<T> = { taskId?: string; output: T };
 
@@ -92,6 +107,8 @@ export const OperatorMap = () => {
   /* The radius the LAST round actually ran at. Changing the control must not
      retroactively relabel a result that came from a different radius. */
   const [ranAtKm, setRanAtKm] = useState<number>(DEFAULT_RADIUS_KM);
+  /* Counts completed rounds; the map re-frames when it changes. */
+  const [round, setRound] = useState(0);
 
   const loadLots = useCallback(async () => {
     const res = await get<Envelope<{ lots: ResidueLot[] }>>("/lots");
@@ -177,6 +194,7 @@ export const OperatorMap = () => {
       setSelected(next[0]?.matchId ?? null);
       setRanAtKm(radiusKm);
       await loadLots();
+      setRound((r) => r + 1);
       return `${next.length} matched, ${unplaced.length} unplaced at ${radiusKm} km`;
     }, "Run matching");
 
@@ -329,6 +347,16 @@ export const OperatorMap = () => {
                 eventHandlers={{ click: () => setSelected(match.matchId) }}
               />
             ))}
+
+            {/* The selected route's two ends, ringed so it reads at any zoom (#91). */}
+            {lines
+              .filter(({ match }) => match.matchId === selected)
+              .flatMap(({ match, from, to }) => [
+                <CircleMarker key={`${match.matchId}-a`} center={from} radius={9} pathOptions={{ color: "#46c79a", weight: 3, fillOpacity: 0 }} interactive={false} />,
+                <CircleMarker key={`${match.matchId}-b`} center={to} radius={9} pathOptions={{ color: "#46c79a", weight: 3, fillOpacity: 0 }} interactive={false} />,
+              ])}
+
+            <FitToRound round={round} lines={lines} />
           </MapContainer>
 
           <div className="legend">
