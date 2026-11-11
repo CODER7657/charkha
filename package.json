@@ -30,11 +30,11 @@
     "@types/node": "^22.10.2",
     "concurrently": "^9.1.2",
     "eslint": "^9.18.0",
-    "onnxruntime-node": "^1.29.0",
-    "prettier": "^3.4.2",
-    "tsx": "^4.23.13",
+    "onnxruntime-node": "^1.31.1",
+    "prettier": "^3.9.10",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.20.0",
+    "typescript-eslint": "^8.72.1",
     "vitest": "^3.2.7"
   }
 }
