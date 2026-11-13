@@ -8,7 +8,7 @@
     "@charkha/a2a": "workspace:*",
     "@charkha/core": "workspace:*",
     "@charkha/db": "workspace:*",
-    "dotenv": "^17.4.2",
+    "dotenv": "^18.0.10",
     "zod": "^4.6.7"
   }
 }

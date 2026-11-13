@@ -9,7 +9,7 @@
     "@charkha/core": "workspace:*",
     "@charkha/db": "workspace:*",
     "@fastify/static": "^10.1.10",
-    "dotenv": "^17.4.2",
+    "dotenv": "^18.0.10",
     "fastify": "^5.12.8",
     "zod": "^4.6.7"
   }
