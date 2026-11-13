@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@charkha/core": "workspace:*",
-    "did-jwt-vc": "^4.0.16",
+    "did-jwt-vc": "^5.0.2",
     "did-resolver": "^4.1.0",
     "key-did-resolver": "^4.0.0",
     "leaflet": "^1.9.4",
