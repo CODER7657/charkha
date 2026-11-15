@@ -16,7 +16,7 @@ jobs:
     name: guard
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: no .env committed
         run: |
@@ -90,13 +90,13 @@ jobs:
       PUBLIC_BASE_URL: http://localhost:4000
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # No `version:` here on purpose - packageManager in package.json is the
       # single source of truth. Setting both is an error.
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
 
@@ -173,7 +173,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [guard]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: build image
         run: docker build -t charkha:ci .

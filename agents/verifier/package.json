@@ -11,11 +11,11 @@
     "@charkha/a2a": "workspace:*",
     "@charkha/core": "workspace:*",
     "@charkha/db": "workspace:*",
-    "dotenv": "^17.4.2",
-    "zod": "^4.6.2",
-    "onnxruntime-node": "^1.29.0"
+    "dotenv": "^18.0.10",
+    "zod": "^4.6.7",
+    "onnxruntime-node": "^1.31.1"
   },
   "devDependencies": {
-    "onnxruntime-web": "^1.29.0"
+    "onnxruntime-web": "^1.31.1"
   }
 }

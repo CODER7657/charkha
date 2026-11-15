@@ -14,12 +14,12 @@
     "studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "drizzle-orm": "^0.45.2",
-    "pg": "^8.23.0",
+    "drizzle-orm": "^0.45.4",
+    "pg": "^8.23.1",
     "@charkha/core": "workspace:*"
   },
   "devDependencies": {
     "@types/pg": "^8.11.10",
-    "drizzle-kit": "^0.31.10"
+    "drizzle-kit": "^0.31.11"
   }
 }
